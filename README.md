@@ -1,15 +1,15 @@
-# INVESTMENT_Analysis_Hackathon
+### INVESTMENT_Analysis_Hackathon
 
-# Environment Variables Template
-# Copy this file to .env and fill in your actual values
+## Environment Variables Template
+### Copy this file to .env and fill in your actual values
 
-# Google AI API Key (Required)
+### Google AI API Key (Required)
 GOOGLE_API_KEY=your_google_api_key_here
 
-# LLM Model Selection (Optional)
+### LLM Model Selection (Optional)
 LLM_MODEL=gemini-2.5-flash
 
-# LangSmith Configuration (Optional - for tracing and monitoring)
+### LangSmith Configuration (Optional - for tracing and monitoring)
 LANGSMITH_API_KEY=your_langsmith_api_key_here
 LANGSMITH_PROJECT=multi-agent-investment-analyzer
 TAVILY_API_KEY=your_tavily_api_key_here

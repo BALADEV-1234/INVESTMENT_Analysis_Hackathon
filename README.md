@@ -18,7 +18,7 @@ Instructions:
 1. Get your Google AI API key from: https://makersuite.google.com/app/apikey
 2. Get your LangSmith API key from: https://smith.langchain.com/
 3. Replace the placeholder values with your actual keys
-4. Save this file as .env (remove .example extension)
+4. Save this file as .env
 
 Start the Server
 ```

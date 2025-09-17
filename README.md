@@ -26,6 +26,6 @@ python main.py
 ```
 Test with a file/files
 ```
-curl -X POST "http://localhost:8000/analyze" \
+curl -X POST "http://localhost:8000/summary" \
   -F "files=@tests/test_pitch.pdf"
 ```

@@ -1,0 +1,24 @@
+# Dockerfile.frontend
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copy requirements (only dashboard deps)
+COPY requirements.txt .
+
+# Install only dashboard dependencies
+RUN pip install --no-cache-dir \
+    dash==2.14.2 \
+    dash-bootstrap-components==1.5.0 \
+    plotly==5.18.0 \
+    requests==2.31.0 \
+    python-dotenv==1.0.0
+
+# Copy dashboard code
+COPY dashboard.py .
+
+# Expose port
+EXPOSE 8050
+
+# Run the dashboard
+CMD ["python", "dashboard.py"]

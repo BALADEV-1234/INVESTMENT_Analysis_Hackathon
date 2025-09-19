@@ -1,11 +1,17 @@
-# Enhanced Multi-Agent Orchestrator with Web Search and Question Generation
+# src/core/enhanced_multi_agent_orchestrator.py
+# Enhanced Multi-Agent Orchestrator with LLM-based Company Extraction
+
 import asyncio
-from typing import List, Dict, Any, Tuple
+import os
+import re
+import json
+from typing import List, Dict, Any, Tuple, Optional
 from fastapi import UploadFile
 from langsmith import traceable
 import langsmith
-import os
 from datetime import datetime
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.prompts import ChatPromptTemplate
 
 from ..agents.pitch_deck_agent import PitchDeckAgent
 from ..agents.data_room_agent import DataRoomAgent
@@ -13,24 +19,198 @@ from ..agents.enhanced_web_content_agent import EnhancedWebContentAgent
 from ..agents.interaction_agent import InteractionAgent
 from ..agents.enhanced_aggregator_agent import EnhancedAggregatorAgent
 from ..utils.file_processor import FileProcessor
-from ..agents.founder_question_agent import FounderQuestionAgent  # Add this import
+
+
+class IntelligentCompanyExtractor:
+    """Use LLM to intelligently extract company information from documents."""
+    
+    def __init__(self):
+        self.llm = ChatGoogleGenerativeAI(
+            model=os.getenv("LLM_MODEL", "gemini-2.0-flash-exp"),
+            temperature=0.1  # Low temperature for factual extraction
+        )
+    
+    async def extract_company_info(self, content: str) -> Dict[str, Any]:
+        """Extract company information using LLM intelligence."""
+        
+        # Take first 5000 characters for extraction (to fit in context)
+        content_sample = content[:5000]
+        
+        extraction_prompt = ChatPromptTemplate.from_messages([
+            ("system", """You are an expert at extracting company information from pitch decks and business documents.
+            Your task is to identify the actual company being presented, not templates, tools, or watermarks.
+            
+            Focus on:
+            - The company actually seeking investment
+            - The business being described
+            - Ignore template names, watermarks, or tool mentions like "Template by...", "Created with...", etc.
+            
+            Return information in valid JSON format only."""),
+            
+            ("human", """Extract the company information from this document.
+            
+            IMPORTANT: 
+            - Identify the ACTUAL company being pitched, not template providers
+            - If you see "AirBed&Breakfast" or "Airbnb", that's the company
+            - Ignore watermarks like "Template by PitchDeckCoach" or similar
+            - Focus on the business description and value proposition
+            
+            Document content:
+            {content}
+            
+            Return ONLY a valid JSON object with these fields:
+            {{
+                "company_name": "actual company name",
+                "website": "company website if found",
+                "industry": "industry or sector",
+                "description": "brief company description",
+                "founders": ["founder names if found"],
+                "location": "headquarters location",
+                "stage": "funding stage if mentioned",
+                "products": ["main products or services"],
+                "target_market": "target customer segment"
+            }}
+            
+            If a field is not found, use null.
+            """)
+        ])
+        
+        try:
+            messages = extraction_prompt.format_messages(content=content_sample)
+            response = await self.llm.ainvoke(messages)
+            
+            # Parse the JSON response
+            json_str = response.content
+            
+            # Clean up the response to ensure valid JSON
+            if '```json' in json_str:
+                json_str = json_str.split('```json')[1].split('```')[0]
+            elif '```' in json_str:
+                json_str = json_str.split('```')[1].split('```')[0]
+            
+            # Parse JSON
+            company_info = json.loads(json_str)
+            
+            # Validate and clean the company name
+            if company_info.get("company_name"):
+                # Remove any template references if they slipped through
+                name = company_info["company_name"]
+                if "template" in name.lower() or "pitchdeck" in name.lower():
+                    # Try to find the real company name in the content
+                    company_info["company_name"] = await self._get_real_company_name(content_sample)
+            
+            # Map to expected format
+            return {
+                "name": company_info.get("company_name"),
+                "website": company_info.get("website"),
+                "industry": company_info.get("industry", "technology"),
+                "description": company_info.get("description"),
+                "founders": company_info.get("founders", []),
+                "location": company_info.get("location"),
+                "stage": company_info.get("stage"),
+                "products": company_info.get("products", [])
+            }
+            
+        except (json.JSONDecodeError, Exception) as e:
+            print(f"LLM JSON extraction failed: {e}")
+            # Fallback to simple extraction
+            return await self._simple_llm_extraction(content_sample)
+    
+    async def _get_real_company_name(self, content: str) -> Optional[str]:
+        """Get the real company name when template name was extracted."""
+        
+        simple_prompt = ChatPromptTemplate.from_messages([
+            ("system", "You extract the actual company name from pitch decks, ignoring templates."),
+            ("human", """This pitch deck contains a company presentation.
+            What is the REAL company name being pitched?
+            
+            Look for the actual business, like "AirBed&Breakfast", "Uber", "Dropbox", etc.
+            Ignore template watermarks.
+            
+            Content:
+            {content}
+            
+            Respond with ONLY the company name.
+            """)
+        ])
+        
+        try:
+            messages = simple_prompt.format_messages(content=content[:1000])
+            response = await self.llm.ainvoke(messages)
+            name = response.content.strip()
+            
+            # Validate it's not a template
+            if "template" not in name.lower() and "coach" not in name.lower():
+                return name
+        except:
+            pass
+        
+        return None
+    
+    async def _simple_llm_extraction(self, content: str) -> Dict[str, Any]:
+        """Simpler extraction when JSON parsing fails."""
+        
+        simple_prompt = ChatPromptTemplate.from_messages([
+            ("system", "You identify companies from pitch decks."),
+            ("human", """What is the company name in this pitch deck?
+            
+            Look for the actual business being pitched (like AirBed&Breakfast, Uber, etc.)
+            NOT template names.
+            
+            Document:
+            {content}
+            
+            Respond with: Company: [name] | Industry: [industry]
+            """)
+        ])
+        
+        try:
+            messages = simple_prompt.format_messages(content=content[:2000])
+            response = await self.llm.ainvoke(messages)
+            
+            # Parse the simple format
+            parts = response.content.split('|')
+            company_name = None
+            industry = "technology"
+            
+            for part in parts:
+                if "Company:" in part:
+                    company_name = part.replace("Company:", "").strip()
+                elif "Industry:" in part:
+                    industry = part.replace("Industry:", "").strip()
+            
+            return {
+                "name": company_name,
+                "industry": industry,
+                "products": [],
+                "founders": [],
+                "location": None,
+                "website": None,
+                "stage": None,
+                "description": None
+            }
+        except Exception as e:
+            print(f"Simple extraction failed: {e}")
+            return {"name": None, "industry": "technology"}
+
 
 class EnhancedMultiAgentOrchestrator:
-    """Enhanced orchestrator with comprehensive web search and founder question generation."""
+    """Enhanced orchestrator with LLM-based company extraction and web search."""
     
     def __init__(self):
         self.agents = {
             "pitch_deck": PitchDeckAgent(),
             "data_room": DataRoomAgent(),
-            "web_content": EnhancedWebContentAgent(),  # Using enhanced version
+            "web_content": EnhancedWebContentAgent(),
             "interaction": InteractionAgent()
         }
-        self.aggregator = EnhancedAggregatorAgent()  # Using enhanced version
+        self.aggregator = EnhancedAggregatorAgent()
         self.file_processor = FileProcessor()
+        self.company_extractor = IntelligentCompanyExtractor()
     
     @traceable(name="enhanced_multi_agent_analysis")
     async def analyze_files(self, files: List[UploadFile]) -> Dict[str, Any]:
-        """Process files through specialized agents with enhanced web search and question generation."""
+        """Process files through specialized agents with intelligent web search."""
         
         start_time = datetime.now()
         
@@ -38,25 +218,44 @@ class EnhancedMultiAgentOrchestrator:
         if os.getenv("LANGSMITH_API_KEY"):
             langsmith.get_current_run_tree().add_metadata({
                 "total_files": len(files),
-                "orchestrator_type": "enhanced_multi_agent",
-                "features": ["web_search", "question_generation", "scoring_framework"]
+                "orchestrator_type": "enhanced_multi_agent_llm",
+                "features": ["llm_extraction", "intelligent_web_search", "question_generation", "scoring_framework"]
             })
         
         # Step 1: Process and categorize files
         categorized_files = await self._process_and_categorize_files(files)
         
-        # Step 2: Extract company information for enhanced web search
-        company_info = await self._extract_company_information(categorized_files)
+        # Step 2: Extract company information using LLM
+        company_info = await self._llm_company_extraction(categorized_files)
         
-        # Step 3: Run specialized agents in parallel (with enhanced web agent)
+        # Step 3: Ensure web search runs if we have company info and Tavily is available
+        if company_info.get("name") and os.getenv("TAVILY_API_KEY"):
+            # Force web search by ensuring web_content category exists
+            if "web_content" not in categorized_files:
+                categorized_files["web_content"] = []
+            
+            # Add company info as a web search trigger
+            categorized_files["web_content"].append({
+                "content": self._create_web_search_content(company_info),
+                "metadata": {
+                    "filename": "company_intelligence.txt",
+                    "company_info": company_info,
+                    "trigger_web_search": True,
+                    "synthetic": True
+                }
+            })
+            
+            print(f"✓ Web search triggered for company: {company_info.get('name')}")
+        else:
+            if not company_info.get("name"):
+                print("⚠ No company name extracted - web search skipped")
+            elif not os.getenv("TAVILY_API_KEY"):
+                print("⚠ Tavily API key not found - web search skipped")
+        
+        # Step 4: Run specialized agents in parallel
         agent_tasks = []
         for category, file_data in categorized_files.items():
             if category in self.agents and file_data:
-                # Pass company info to web agent for better searches
-                if category == "web_content":
-                    for data in file_data:
-                        data["metadata"]["company_info"] = company_info
-                
                 agent_tasks.append(
                     self._run_agent_analysis(category, file_data)
                 )
@@ -82,13 +281,13 @@ class EnhancedMultiAgentOrchestrator:
                 if result.get("agent") == "web_content":
                     web_search_performed = result.get("metadata", {}).get("web_results_count", 0) > 0
         
-        # Step 4: Enhanced aggregation with scoring and question generation
+        # Step 5: Enhanced aggregation with scoring and question generation
         final_summary = await self.aggregator.aggregate_analyses(valid_results)
         
         # Add processing time
         processing_time = (datetime.now() - start_time).total_seconds()
         
-        # Step 5: Generate comprehensive output
+        # Step 6: Generate comprehensive output
         return {
             "final_summary": final_summary,
             "investment_scores": final_summary.get("scores", {}),
@@ -111,65 +310,86 @@ class EnhancedMultiAgentOrchestrator:
             }
         }
     
-    async def _extract_company_information(self, categorized_files: Dict[str, List[Dict[str, Any]]]) -> Dict[str, Any]:
-        """Extract company information from files for enhanced web search."""
-        company_info = {
-            "name": None,
-            "industry": None,
-            "products": [],
-            "founders": [],
-            "location": None,
-            "stage": None
-        }
+    async def _llm_company_extraction(self, categorized_files: Dict[str, List[Dict[str, Any]]]) -> Dict[str, Any]:
+        """Use LLM to intelligently extract company information."""
         
-        # Look through pitch deck files first (most likely to have company info)
-        for category in ["pitch_deck", "web_content", "data_room"]:
-            if category in categorized_files and categorized_files[category]:
-                for file_data in categorized_files[category]:
-                    content = file_data["content"][:5000]  # Check first 5000 chars
-                    
-                    # Extract company name
-                    if not company_info["name"]:
-                        import re
-                        name_patterns = [
-                            r'(?:Company|Startup)[\s:]+([A-Z][A-Za-z0-9\s&.]+)',
-                            r'^([A-Z][A-Za-z0-9\s&.]+?)(?:\s*[-–—]\s*)',
-                        ]
-                        for pattern in name_patterns:
-                            match = re.search(pattern, content, re.MULTILINE)
-                            if match:
-                                company_info["name"] = match.group(1).strip()
-                                break
-                    
-                    # Extract industry
-                    if not company_info["industry"]:
-                        industry_keywords = {
-                            "fintech": ["financial", "payments", "banking"],
-                            "healthtech": ["health", "medical", "clinical"],
-                            "saas": ["software", "platform", "cloud"],
-                            "ai/ml": ["artificial intelligence", "machine learning"],
-                            "biotech": ["biotech", "pharmaceutical", "drug"]
-                        }
-                        content_lower = content.lower()
-                        for industry, keywords in industry_keywords.items():
-                            if any(kw in content_lower for kw in keywords):
-                                company_info["industry"] = industry
-                                break
-                    
-                    # Extract stage
-                    if not company_info["stage"]:
-                        stage_patterns = [
-                            (r'seed', 'Seed'),
-                            (r'series\s+[a-c]', 'Series A/B/C'),
-                            (r'pre-seed', 'Pre-seed')
-                        ]
-                        for pattern, stage in stage_patterns:
-                            if re.search(pattern, content, re.IGNORECASE):
-                                company_info["stage"] = stage
-                                break
+        # Combine content from all files (prioritize pitch decks)
+        all_content = []
+        
+        # First, add pitch deck content (most likely to have company info)
+        if "pitch_deck" in categorized_files:
+            for file_data in categorized_files["pitch_deck"]:
+                all_content.append(file_data["content"][:3000])
+        
+        # Then add other content
+        for category, files in categorized_files.items():
+            if category != "pitch_deck":
+                for file_data in files:
+                    all_content.append(file_data["content"][:2000])
+        
+        combined_content = "\n\n".join(all_content)
+        
+        # Use LLM extraction
+        print("Using LLM to extract company information...")
+        company_info = await self.company_extractor.extract_company_info(combined_content)
+        
+        print(f"LLM extracted company info: {company_info}")
+        
+        # If LLM didn't find a name, try fallback regex (but this is rare)
+        if not company_info.get("name"):
+            print("LLM couldn't find company name, trying fallback...")
+            company_info["name"] = self._fallback_company_extraction(combined_content)
         
         return company_info
     
+    def _fallback_company_extraction(self, content: str) -> Optional[str]:
+        """Simple fallback if LLM fails."""
+        # Look for common patterns
+        patterns = [
+            r'(?:^|\n)([A-Z][A-Za-z0-9&\s.-]+?)(?:\n|\s+(?:is|are|provides|offers))',
+            r'Welcome to\s+([A-Z][A-Za-z0-9&\s.-]+)',
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, content[:1000], re.MULTILINE)
+            if match:
+                name = match.group(1).strip()
+                if "template" not in name.lower() and len(name) > 2:
+                    return name
+        return None
+    
+    def _create_web_search_content(self, company_info: Dict[str, Any]) -> str:
+        """Create content for web search agent based on extracted company info."""
+        
+        content_parts = [
+            f"Company Name: {company_info.get('name', 'Unknown')}",
+            f"Website: {company_info.get('website', 'Not found')}",
+            f"Industry: {company_info.get('industry', 'Technology')}",
+            f"Location: {company_info.get('location', 'Not specified')}",
+            f"Funding Stage: {company_info.get('stage', 'Not specified')}",
+        ]
+        
+        if company_info.get('description'):
+            content_parts.append(f"\nDescription: {company_info['description']}")
+        
+        if company_info.get('products'):
+            content_parts.append(f"\nProducts/Services: {', '.join(company_info['products'][:3])}")
+        
+        if company_info.get('founders'):
+            content_parts.append(f"\nFounders: {', '.join(company_info['founders'][:3])}")
+        
+        content = '\n'.join(content_parts)
+        
+        # Add search instructions
+        content += "\n\nPerform web searches for:\n"
+        content += f"1. {company_info.get('name', 'company')} recent news updates funding\n"
+        content += f"2. {company_info.get('name', 'company')} competitors market analysis\n"
+        content += f"3. {company_info.get('name', 'company')} customer reviews testimonials\n"
+        content += f"4. {company_info.get('name', 'company')} team hiring linkedin\n"
+        
+        return content
+    
+    # Keep all the existing helper methods unchanged
     async def _process_and_categorize_files(self, files: List[UploadFile]) -> Dict[str, List[Dict[str, Any]]]:
         """Process files and categorize them by data source type."""
         categorized = {
@@ -180,14 +400,12 @@ class EnhancedMultiAgentOrchestrator:
             "general": []
         }
         
-        # Process files in parallel
         processing_tasks = [
             self._process_single_file(file) for file in files
         ]
         
         processed_files = await asyncio.gather(*processing_tasks, return_exceptions=True)
         
-        # Categorize processed files
         for result in processed_files:
             if isinstance(result, Exception):
                 continue
@@ -219,7 +437,6 @@ class EnhancedMultiAgentOrchestrator:
         """Run analysis for a specific agent category."""
         agent = self.agents[category]
         
-        # Combine all content for this category
         combined_content = []
         combined_metadata = {
             "category": category,
@@ -227,15 +444,9 @@ class EnhancedMultiAgentOrchestrator:
             "files": []
         }
         
-        # Check if this is web content agent with company info
-        company_info = None
         for file_data in file_data_list:
             content = file_data["content"]
             metadata = file_data["metadata"]
-            
-            # Extract company info if available
-            if "company_info" in metadata:
-                company_info = metadata["company_info"]
             
             combined_content.append(f"=== File: {metadata.get('filename', 'Unknown')} ===\n{content}")
             combined_metadata["files"].append({
@@ -246,27 +457,15 @@ class EnhancedMultiAgentOrchestrator:
         
         full_content = "\n\n".join(combined_content)
         
-        # Add company info to content if web agent
-        if category == "web_content" and company_info:
-            info_text = f"**COMPANY INFORMATION:**\n"
-            info_text += f"Name: {company_info.get('name', 'Unknown')}\n"
-            info_text += f"Industry: {company_info.get('industry', 'Unknown')}\n"
-            info_text += f"Stage: {company_info.get('stage', 'Unknown')}\n\n"
-            full_content = info_text + full_content
-        
-        # Add tracing metadata
         if os.getenv("LANGSMITH_API_KEY"):
             langsmith.get_current_run_tree().add_metadata({
                 "agent_category": category,
                 "files_processed": len(file_data_list),
-                "total_content_length": len(full_content),
-                "has_company_info": bool(company_info)
+                "total_content_length": len(full_content)
             })
         
-        # Run analysis
         analysis_result = await agent.analyze(full_content)
         
-        # Add category and metadata to the result
         analysis_result["agent"] = category
         analysis_result["metadata"].update(combined_metadata)
         
@@ -283,24 +482,25 @@ class EnhancedMultiAgentOrchestrator:
         
         for category, files in categorized_files.items():
             if files:
-                summary["categories"][category] = {
-                    "file_count": len(files),
-                    "files": [f["metadata"].get("filename", "Unknown") for f in files],
-                    "total_size_bytes": sum(f["metadata"].get("size_bytes", 0) for f in files)
-                }
-                summary["total_files"] += len(files)
+                # Skip synthetic web search triggers
+                real_files = [f for f in files if not f["metadata"].get("synthetic", False)]
                 
-                # Track file types
-                for file_data in files:
-                    ext = file_data["metadata"].get("file_extension", "unknown")
-                    summary["file_types"][ext] = summary["file_types"].get(ext, 0) + 1
-                
-                # Check for processing errors
-                for file_data in files:
-                    if "error" in file_data["metadata"]:
-                        summary["processing_errors"].append({
-                            "filename": file_data["metadata"].get("filename"),
-                            "error": file_data["metadata"]["error"]
-                        })
+                if real_files:
+                    summary["categories"][category] = {
+                        "file_count": len(real_files),
+                        "files": [f["metadata"].get("filename", "Unknown") for f in real_files],
+                        "total_size_bytes": sum(f["metadata"].get("size_bytes", 0) for f in real_files)
+                    }
+                    summary["total_files"] += len(real_files)
+                    
+                    for file_data in real_files:
+                        ext = file_data["metadata"].get("file_extension", "unknown")
+                        summary["file_types"][ext] = summary["file_types"].get(ext, 0) + 1
+                        
+                        if "error" in file_data["metadata"]:
+                            summary["processing_errors"].append({
+                                "filename": file_data["metadata"].get("filename"),
+                                "error": file_data["metadata"]["error"]
+                            })
         
         return summary

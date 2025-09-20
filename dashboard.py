@@ -667,7 +667,7 @@ def check_system_status(_):
                      style={'color': '#FF5E5B', 'fontWeight': '700'})
         ])
 
-# Handle file uploads
+# Handle file uploads with better multiple file support
 @app.callback(
     [Output('uploaded-files', 'children'),
      Output('analyze-button', 'disabled'),
@@ -677,86 +677,122 @@ def check_system_status(_):
 )
 def handle_file_upload(contents, filenames):
     if not contents:
-        return html.Div(
-            "No files uploaded", 
-            style={'color': '#6C7293', 'textAlign': 'center', 'padding': '20px'}
-        ), True, None
+        empty_state = html.Div([
+            html.I(className="fas fa-folder-open", 
+                  style={'fontSize': '32px', 'color': '#6C7293', 'marginBottom': '12px'}),
+            html.P("No files uploaded yet", 
+                  style={'color': '#6C7293', 'fontSize': '14px'}),
+            html.P("Select multiple files using Ctrl/Cmd+Click or drag multiple files", 
+                  style={'color': '#6C7293', 'fontSize': '12px'})
+        ], style={'textAlign': 'center', 'padding': '30px'})
+        
+        return empty_state, True, None
+    
+    # Handle both single and multiple files
+    if not isinstance(contents, list):
+        contents = [contents]
+        filenames = [filenames]
     
     files_info = []
     total_size = 0
     
     for content, filename in zip(contents, filenames):
-        content_string = content.split(',')[1]
-        decoded = base64.b64decode(content_string)
-        file_size = len(decoded)
-        total_size += file_size
-        
-        ext = os.path.splitext(filename)[1].lower()
-        
-        # File type colors
-        ext_colors = {
-            '.pdf': '#FF5E5B',
-            '.xlsx': '#00D9A3',
-            '.xls': '#00D9A3',
-            '.csv': '#00D9A3',
-            '.pptx': '#FFB547',
-            '.txt': '#00B4D8',
-            '.json': '#4C7BF4'
-        }
-        
-        files_info.append({
-            'filename': filename,
-            'size': file_size,
-            'color': ext_colors.get(ext, '#B8BCC8'),
-            'content': content,
-            'ext': ext
-        })
+        try:
+            content_string = content.split(',')[1]
+            decoded = base64.b64decode(content_string)
+            file_size = len(decoded)
+            total_size += file_size
+            
+            ext = os.path.splitext(filename)[1].lower()
+            
+            # File type colors and icons
+            file_types = {
+                '.pdf': {'color': '#FF5E5B', 'icon': 'fa-file-pdf'},
+                '.xlsx': {'color': '#00D9A3', 'icon': 'fa-file-excel'},
+                '.xls': {'color': '#00D9A3', 'icon': 'fa-file-excel'},
+                '.csv': {'color': '#00D9A3', 'icon': 'fa-file-csv'},
+                '.pptx': {'color': '#FFB547', 'icon': 'fa-file-powerpoint'},
+                '.ppt': {'color': '#FFB547', 'icon': 'fa-file-powerpoint'},
+                '.txt': {'color': '#00B4D8', 'icon': 'fa-file-alt'},
+                '.md': {'color': '#00B4D8', 'icon': 'fa-file-alt'},
+                '.json': {'color': '#4C7BF4', 'icon': 'fa-file-code'}
+            }
+            
+            file_info = file_types.get(ext, {'color': '#B8BCC8', 'icon': 'fa-file'})
+            
+            files_info.append({
+                'filename': filename,
+                'size': file_size,
+                'color': file_info['color'],
+                'icon': file_info['icon'],
+                'content': content,
+                'ext': ext
+            })
+        except Exception as e:
+            print(f"Error processing file {filename}: {e}")
+            continue
     
-    # Create file cards
+    # Create file cards grid
     file_cards = []
-    for info in files_info:
+    for i, info in enumerate(files_info):
         size_str = f"{info['size']/1024:.1f} KB" if info['size'] < 1024*1024 else f"{info['size']/(1024*1024):.1f} MB"
         
         file_cards.append(
-            html.Div([
+            dbc.Col([
                 html.Div([
-                    html.Div(info['ext'].upper()[1:], 
-                            style={
-                                'color': info['color'],
-                                'fontSize': '12px',
-                                'fontWeight': '700',
-                                'marginBottom': '4px'
-                            }),
-                    html.Div(info['filename'], 
-                            style={
-                                'color': '#FFFFFF',
-                                'fontSize': '14px',
-                                'fontWeight': '500',
-                                'marginBottom': '4px',
-                                'overflow': 'hidden',
-                                'textOverflow': 'ellipsis',
-                                'whiteSpace': 'nowrap'
-                            }),
-                    html.Div(size_str, 
-                            style={'color': '#6C7293', 'fontSize': '12px'})
-                ], style={
-                    'padding': '12px',
-                    'background': '#262B47',
-                    'border': f'1px solid {info["color"]}33',
-                    'borderRadius': '8px',
-                    'marginBottom': '8px'
-                })
-            ])
+                    html.Div([
+                        html.I(className=f"fas {info['icon']}", 
+                              style={'fontSize': '24px', 'color': info['color'], 'marginBottom': '8px'}),
+                        html.Div(info['filename'], 
+                                style={
+                                    'color': '#FFFFFF',
+                                    'fontSize': '13px',
+                                    'fontWeight': '500',
+                                    'marginBottom': '4px',
+                                    'overflow': 'hidden',
+                                    'textOverflow': 'ellipsis',
+                                    'whiteSpace': 'nowrap'
+                                },
+                                title=info['filename']),  # Tooltip for full name
+                        html.Div(size_str, 
+                                style={'color': '#6C7293', 'fontSize': '11px'})
+                    ], style={
+                        'padding': '15px',
+                        'background': '#262B47',
+                        'border': f'1px solid {info["color"]}33',
+                        'borderRadius': '8px',
+                        'textAlign': 'center',
+                        'height': '120px',
+                        'display': 'flex',
+                        'flexDirection': 'column',
+                        'justifyContent': 'center',
+                        'alignItems': 'center',
+                        'transition': 'all 0.3s ease',
+                        'cursor': 'pointer'
+                    },
+                    className='file-card-hover')
+                ])
+            ], width=6, md=4, lg=3, className='mb-3')
         )
     
+    # File count banner (integrated into the display)
+    file_count_banner = html.Div([
+        html.I(className="fas fa-check-circle me-2", style={'color': '#00D9A3'}),
+        html.Span(f"{len(files_info)} file{'s' if len(files_info) > 1 else ''} ready for analysis", 
+                 style={'color': '#00D9A3', 'fontWeight': '600'}),
+        html.Span(f" • Total size: {total_size/(1024*1024):.1f} MB", 
+                 style={'color': '#B8BCC8', 'fontSize': '14px'})
+    ], style={
+        'padding': '12px',
+        'background': 'rgba(0, 217, 163, 0.1)',
+        'border': '1px solid rgba(0, 217, 163, 0.3)',
+        'borderRadius': '8px',
+        'marginBottom': '16px'
+    })
+    
     files_display = html.Div([
-        html.Div([
-            html.Span(f"{len(files_info)} files ready • ", 
-                     style={'color': '#B8BCC8', 'fontSize': '14px'}),
-            html.Span(f"{total_size/(1024*1024):.1f} MB total", 
-                     style={'color': '#6C7293', 'fontSize': '14px'})
-        ], style={'marginBottom': '12px'}),
-        html.Div(file_cards)
+        file_count_banner,
+        dbc.Row(file_cards)
     ])
     
     return files_display, False, files_info

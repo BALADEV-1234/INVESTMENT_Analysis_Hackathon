@@ -1,16 +1,33 @@
+# requirements.txt
 fastapi
-uvicorn
+uvicorn[standard]
+python-multipart
+aiofiles
+python-dotenv
+
+# LangChain and AI
 langchain
 langchain-google-genai
 langchain-core
 langgraph
 langsmith
+
+# Web Search
+tavily-python
+
+# File Processing
 PyPDF2
 python-pptx
 pandas
 openpyxl
 xlrd
-python-multipart
-pydantic<2.0.0
-tavily-python
-python-dotenv
+
+# Dashboard UI
+dash
+dash-bootstrap-components
+plotly
+requests
+
+# Async support
+aiohttp
+asyncio

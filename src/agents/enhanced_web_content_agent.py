@@ -16,7 +16,12 @@ except ImportError:
 
 class EnhancedWebContentAgent(BaseAgent):
     """Agent specialized in analyzing web content with Tavily search integration."""
-    
+
+    # Guardrails: Web search limits
+    MAX_SEARCH_QUERIES = 10  # Maximum number of search queries
+    MAX_RESULTS_PER_QUERY = 3  # Already used in code
+    MAX_TOTAL_RESULTS = 30  # Maximum total web results
+
     def __init__(self):
         super().__init__()
         self.tavily_client = None
@@ -136,9 +141,18 @@ class EnhancedWebContentAgent(BaseAgent):
             # Handle special cases like AirBed&Breakfast -> Airbnb
             if "airbed" in company_name.lower() or "breakfast" in company_name.lower():
                 search_queries.append("Airbnb company news funding history")
-            
+
+            # Guardrail: Limit number of search queries
+            if len(search_queries) > self.MAX_SEARCH_QUERIES:
+                print(f"⚠ Warning: {len(search_queries)} queries requested, limiting to {self.MAX_SEARCH_QUERIES}")
+                search_queries = search_queries[:self.MAX_SEARCH_QUERIES]
+
             all_results = []
             for query in search_queries:
+                # Guardrail: Stop if we've reached max total results
+                if len(all_results) >= self.MAX_TOTAL_RESULTS:
+                    print(f"⚠ Reached maximum web results limit ({self.MAX_TOTAL_RESULTS}), stopping search")
+                    break
                 try:
                     print(f"  Searching: {query}")
                     results = self.tavily_client.search(

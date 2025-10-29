@@ -172,10 +172,10 @@ class EnhancedAggregatorAgent(BaseAgent):
     
     def _calculate_investment_scores(self, analysis: Dict[str, Any]) -> Dict[str, Any]:
         """Calculate detailed investment scores based on the KPI framework."""
-        
+
         # Extract signals from the analysis text
         analysis_text = analysis.get("analysis", "").lower()
-        
+
         scores = {
             "team": self._calculate_team_score(analysis_text),
             "market": self._calculate_market_score(analysis_text),
@@ -184,7 +184,18 @@ class EnhancedAggregatorAgent(BaseAgent):
             "financials": self._calculate_financials_score(analysis_text),
             "moat": self._calculate_moat_score(analysis_text)
         }
-        
+
+        # Guardrail: Validate all scores are in 0-100 range
+        for category, score in scores.items():
+            if not isinstance(score, (int, float)):
+                scores[category] = 50.0  # Default to neutral
+            elif score < 0:
+                print(f"⚠ Warning: {category} score {score} < 0, clamping to 0")
+                scores[category] = 0.0
+            elif score > 100:
+                print(f"⚠ Warning: {category} score {score} > 100, clamping to 100")
+                scores[category] = 100.0
+
         # Calculate weighted overall score
         weights = {
             "team": 0.25,
@@ -194,15 +205,21 @@ class EnhancedAggregatorAgent(BaseAgent):
             "financials": 0.05,
             "moat": 0.05
         }
-        
+
+        # Guardrail: Ensure weights sum to 1.0
+        weight_sum = sum(weights.values())
+        if abs(weight_sum - 1.0) > 0.01:
+            print(f"⚠ Warning: Weights sum to {weight_sum}, normalizing")
+            weights = {k: v / weight_sum for k, v in weights.items()}
+
         weighted_score = sum(
-            scores[category] * weights[category] 
+            scores[category] * weights[category]
             for category in scores
         )
-        
+
         scores["overall_weighted"] = round(weighted_score, 2)
         scores["weights"] = weights
-        
+
         # Determine recommendation based on score
         if weighted_score >= 75:
             scores["recommendation"] = "Strong Buy"
@@ -212,7 +229,7 @@ class EnhancedAggregatorAgent(BaseAgent):
             scores["recommendation"] = "Hold"
         else:
             scores["recommendation"] = "Pass"
-        
+
         return scores
     
     def _calculate_team_score(self, text: str) -> float:

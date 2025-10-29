@@ -28,7 +28,7 @@ app = dash.Dash(__name__,
                     {"name": "viewport", "content": "width=device-width, initial-scale=1"}
                 ])
 
-app.title = "VentureIQ - AI Investment Analysis"
+app.title = "Investment Analysis Platform"
 
 # Backend API URL
 API_URL = os.getenv("API_URL", "http://localhost:8000")
@@ -173,18 +173,11 @@ app.index_string = '''
                 padding: 20px;
                 margin-bottom: 16px;
                 transition: all 0.2s ease;
-                overflow: hidden;
-                box-sizing: border-box;
             }
 
             .glass-panel:hover {
                 border-color: #3E4350;
                 box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-            }
-
-            .glass-panel * {
-                max-width: 100%;
-                box-sizing: border-box;
             }
 
             .analysis-card {
@@ -299,54 +292,6 @@ app.index_string = '''
                 border-top: 1px solid #2E3340;
                 margin: 24px 0;
             }
-
-            /* Text Overflow Fixes */
-            .analysis-card {
-                overflow: hidden;
-                width: 100%;
-                box-sizing: border-box;
-            }
-
-            .sidebar-content {
-                overflow-x: hidden;
-                overflow-y: auto;
-            }
-
-            /* Prevent horizontal overflow in sidebar */
-            .sidebar * {
-                max-width: 100%;
-                box-sizing: border-box;
-            }
-
-            /* Company name can wrap */
-            .company-name {
-                word-break: break-word;
-                white-space: normal !important;
-                overflow-wrap: break-word;
-                overflow: visible !important;
-                text-overflow: unset !important;
-                line-height: 1.3;
-            }
-
-            /* Other text in cards should truncate */
-            .analysis-card .text-truncate {
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-            }
-
-            /* Responsive sidebar */
-            @media (max-width: 1400px) {
-                .sidebar {
-                    width: 340px;
-                }
-            }
-
-            @media (max-width: 1200px) {
-                .sidebar {
-                    width: 300px;
-                }
-            }
             
             .glass-card {
                 background: rgba(26, 31, 58, 0.8);
@@ -355,19 +300,12 @@ app.index_string = '''
                 border-radius: 16px;
                 box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
                 transition: all 0.3s ease;
-                overflow: hidden;
-                box-sizing: border-box;
             }
-
+            
             .glass-card:hover {
                 transform: translateY(-2px);
                 box-shadow: 0 12px 40px rgba(76, 123, 244, 0.3);
                 border-color: rgba(76, 123, 244, 0.3);
-            }
-
-            .glass-card * {
-                max-width: 100%;
-                box-sizing: border-box;
             }
             
             .card {
@@ -375,13 +313,6 @@ app.index_string = '''
                 border: 1px solid #2D3254;
                 border-radius: 12px;
                 color: #FFFFFF;
-                overflow: hidden;
-                box-sizing: border-box;
-            }
-
-            .card * {
-                max-width: 100%;
-                box-sizing: border-box;
             }
             
             .card-header {
@@ -595,11 +526,6 @@ app.index_string = '''
                 font-size: 14px;
                 letter-spacing: 0.5px;
                 text-transform: uppercase;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-                max-width: 100%;
-                box-sizing: border-box;
             }
             
             .score-excellent {
@@ -626,47 +552,32 @@ app.index_string = '''
                 background: #1A1F3A;
                 border: 1px solid #2D3254;
                 border-radius: 12px;
-                padding: 20px 16px;
+                padding: 24px;
                 text-align: center;
                 transition: all 0.3s ease;
-                overflow: hidden;
-                box-sizing: border-box;
-                min-height: 100px;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-                align-items: center;
             }
-
+            
             .metric-card:hover {
                 transform: translateY(-4px);
                 border-color: #4C7BF4;
                 box-shadow: 0 8px 24px rgba(76, 123, 244, 0.2);
             }
-
+            
             .metric-value {
-                font-size: 32px;
+                font-size: 36px;
                 font-weight: 700;
                 background: linear-gradient(135deg, #4C7BF4 0%, #00D9A3 100%);
                 -webkit-background-clip: text;
                 -webkit-text-fill-color: transparent;
-                margin-bottom: 6px;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-                width: 100%;
+                margin-bottom: 8px;
             }
-
+            
             .metric-label {
                 color: #6C7293;
-                font-size: 12px;
+                font-size: 14px;
                 font-weight: 500;
                 text-transform: uppercase;
-                letter-spacing: 0.5px;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-                width: 100%;
+                letter-spacing: 1px;
             }
             
             ::-webkit-scrollbar {
@@ -801,25 +712,13 @@ app.layout = html.Div([
             # Sidebar Header
             html.Div([
                 html.Div([
+                    html.I(className="fas fa-chart-line",
+                          style={'fontSize': '24px', 'color': COLORS['primary'], 'marginRight': '12px'}),
                     html.Div([
-                        html.I(className="fas fa-brain",
-                              style={'fontSize': '28px', 'color': COLORS['primary']}),
-                    ], style={
-                        'width': '48px',
-                        'height': '48px',
-                        'background': f"linear-gradient(135deg, {COLORS['primary']}20 0%, {COLORS['accent']}20 100%)",
-                        'borderRadius': '12px',
-                        'display': 'flex',
-                        'alignItems': 'center',
-                        'justifyContent': 'center',
-                        'marginRight': '12px',
-                        'border': f"1px solid {COLORS['primary']}40"
-                    }),
-                    html.Div([
-                        html.H4("VentureIQ",
-                               style={'color': COLORS['text_primary'], 'fontWeight': '700', 'marginBottom': '2px', 'fontSize': '20px'}),
-                        html.P("AI-Powered Investment Analysis",
-                               style={'color': COLORS['text_muted'], 'marginBottom': '0', 'fontSize': '11px'})
+                        html.H4("AI Investment Analyst",
+                               style={'color': COLORS['text_primary'], 'fontWeight': '700', 'marginBottom': '2px', 'fontSize': '18px'}),
+                        html.P("Multi-Agent Analysis Platform",
+                               style={'color': COLORS['text_muted'], 'marginBottom': '0', 'fontSize': '12px'})
                     ])
                 ], style={'display': 'flex', 'alignItems': 'center'})
             ], className='sidebar-header'),
@@ -929,6 +828,114 @@ app.layout = html.Div([
     ], className='app-container')
 
 ], style={'width': '100vw', 'height': '100vh', 'overflow': 'hidden'})
+            dbc.Col([
+                html.Div([
+                    html.Div([
+                        html.H4("Upload Documents", 
+                               style={'color': '#FFFFFF', 'fontWeight': '600', 'marginBottom': '20px'}),
+                        
+                        dcc.Upload(
+                            id='upload-data',
+                            children=html.Div([
+                                html.I(className="fas fa-cloud-upload-alt", 
+                                      style={'fontSize': '48px', 'color': '#4C7BF4', 'marginBottom': '16px'}),
+                                html.H5('Drag & Drop Files Here', 
+                                       style={'color': '#FFFFFF', 'marginBottom': '8px', 'fontWeight': '600'}),
+                                html.P('or click to browse', 
+                                      style={'color': '#B8BCC8', 'marginBottom': '16px'}),
+                                html.Div([
+                                    html.Span('Supported: ', style={'color': '#6C7293'}),
+                                    html.Span('PDF • XLSX • PPTX • CSV • TXT • JSON', 
+                                             style={'color': '#4C7BF4', 'fontWeight': '500'})
+                                ])
+                            ], className='upload-area text-center'),
+                            multiple=True
+                        ),
+                        
+                        html.Div(id='uploaded-files', className='mt-4'),
+                        
+                        # Analysis Configuration
+                        html.Div([
+                            html.H5("Configuration", 
+                                   style={'color': '#FFFFFF', 'fontWeight': '600', 'marginBottom': '16px', 'marginTop': '24px'}),
+                            
+                            dbc.Row([
+                                dbc.Col([
+                                    html.Label("Analysis Type", 
+                                              style={'color': '#B8BCC8', 'fontSize': '14px', 'fontWeight': '500', 'marginBottom': '12px'}),
+                                    dbc.RadioItems(
+                                        id='analysis-type',
+                                        options=[
+                                            {"label": "Full Analysis", "value": "full"},
+                                            {"label": "Quick Summary", "value": "summary"},
+                                            {"label": "Scoring Only", "value": "scoring"},
+                                            {"label": "Questions", "value": "questions"}
+                                        ],
+                                        value='full',
+                                        inline=True,
+                                        className="custom-radio",
+                                        style={'color': '#B8BCC8'}
+                                    )
+                                ], md=6),
+                                dbc.Col([
+                                    html.Label("Enhanced Features", 
+                                              style={'color': '#B8BCC8', 'fontSize': '14px', 'fontWeight': '500', 'marginBottom': '12px'}),
+                                    dbc.Checklist(
+                                        id='analysis-options',
+                                        options=[
+                                            {"label": "Web Search", "value": "web_search"},
+                                            {"label": "AI Questions", "value": "questions"},
+                                            {"label": "Deep Scoring", "value": "scoring"}
+                                        ],
+                                        value=['web_search', 'questions', 'scoring'],
+                                        inline=True,
+                                        style={'color': '#B8BCC8'}
+                                    )
+                                ], md=6)
+                            ])
+                        ]),
+                        
+                        # Analyze Button
+                        html.Div([
+                            dbc.Button(
+                                [
+                                    html.I(className="fas fa-rocket me-2"),
+                                    html.Span("ANALYZE STARTUP", id="button-text")
+                                ],
+                                id='analyze-button',
+                                color="primary",
+                                size="lg",
+                                className="w-100",
+                                disabled=True,
+                                style={'marginTop': '30px', 'padding': '16px'}
+                            )
+                        ]),
+                        
+                        # Progress indicator
+                        html.Div(id='progress-container', className='mt-3')
+                        
+                    ], className='glass-card', style={'padding': '30px'})
+                ])
+            ], width=12)
+        ], className='mb-4'),
+        
+        # Results Section
+        dcc.Loading(
+            id="loading-results",
+            type="circle",
+            children=[
+                html.Div(id='analysis-results')
+            ],
+            color="#4C7BF4"
+        )
+        
+    ], fluid=True),
+    
+    # Hidden stores
+    dcc.Store(id='analysis-data'),
+    dcc.Store(id='uploaded-files-store')
+    
+], className='main-container')
 
 # Check system status
 @app.callback(
@@ -970,33 +977,13 @@ def check_system_status(_):
                      style={'color': '#FF5E5B', 'fontWeight': '700'})
         ])
 
-# Callback to immediately disable button and show loading state when clicked
-@app.callback(
-    [Output('analyze-button', 'disabled'),
-     Output('analyze-button', 'children')],
-    Input('analyze-button', 'n_clicks'),
-    State('analyze-button', 'disabled'),
-    prevent_initial_call=True
-)
-def disable_button_on_click(n_clicks, current_disabled):
-    """Immediately disable button and show loading state when clicked."""
-    if n_clicks and not current_disabled:
-        # Show loading state
-        loading_content = [
-            html.I(className="fas fa-spinner fa-spin me-2"),
-            "Analyzing..."
-        ]
-        return True, loading_content
-    raise PreventUpdate
-
 # Handle file uploads with better multiple file support
 @app.callback(
     [Output('uploaded-files', 'children'),
-     Output('analyze-button', 'disabled', allow_duplicate=True),
+     Output('analyze-button', 'disabled'),
      Output('uploaded-files-store', 'data')],
     Input('upload-data', 'contents'),
-    State('upload-data', 'filename'),
-    prevent_initial_call=True
+    State('upload-data', 'filename')
 )
 def handle_file_upload(contents, filenames):
     if not contents:
@@ -1123,31 +1110,24 @@ def handle_file_upload(contents, filenames):
 # Perform analysis
 @app.callback(
     [Output('analysis-results', 'children'),
-     Output('progress-container', 'children'),
-     Output('analyze-button', 'disabled', allow_duplicate=True),
-     Output('analyze-button', 'children', allow_duplicate=True)],
+     Output('progress-container', 'children')],
     Input('analyze-button', 'n_clicks'),
-    State('uploaded-files-store', 'data'),
+    [State('uploaded-files-store', 'data'),
+     State('analysis-type', 'value'),
+     State('analysis-options', 'value')],
     prevent_initial_call=True
 )
-def perform_analysis(n_clicks, files_info):
+def perform_analysis(n_clicks, files_info, analysis_type, options):
     if not n_clicks or not files_info:
         raise PreventUpdate
-
-    # Default to full analysis
-    analysis_type = 'full'
-
-    # Show progress indicator with loading state
+    
+    # Show progress
     progress = html.Div([
-        html.Div([
-            html.I(className="fas fa-sync fa-spin", style={'fontSize': '32px', 'color': COLORS['primary'], 'marginBottom': '16px'}),
-            html.H5("Analyzing with AI Agents", style={'color': COLORS['text_primary'], 'marginBottom': '8px', 'fontWeight': '600'}),
-            html.P("This may take up to 10 minutes. Please wait while our agents process your files...",
-                  style={'color': COLORS['text_muted'], 'fontSize': '14px', 'marginBottom': '16px'}),
-            dbc.Progress(value=100, animated=True, striped=True, color="primary",
-                        style={'height': '8px', 'marginBottom': '8px'}),
-        ], style={'textAlign': 'center', 'padding': '60px 20px'})
-    ], className='glass-panel')
+        dbc.Progress(value=100, animated=True, striped=True, 
+                    style={'height': '6px', 'marginBottom': '8px'}),
+        html.P("Processing with AI agents...", 
+              style={'color': '#B8BCC8', 'fontSize': '14px', 'textAlign': 'center'})
+    ])
     
     try:
         # Prepare files
@@ -1156,7 +1136,7 @@ def perform_analysis(n_clicks, files_info):
             content_string = file_info['content'].split(',')[1]
             decoded = base64.b64decode(content_string)
             files_to_upload.append(('files', (file_info['filename'], io.BytesIO(decoded))))
-
+        
         # Select endpoint
         endpoint_map = {
             'full': '/analyze',
@@ -1164,35 +1144,29 @@ def perform_analysis(n_clicks, files_info):
             'scoring': '/scoring',
             'questions': '/questions'
         }
-
+        
         endpoint = endpoint_map.get(analysis_type, '/analyze')
-
+        
         # Make request with extended timeout
         response = requests.post(f"{API_URL}{endpoint}", files=files_to_upload, timeout=300)
-
+        
         if response.status_code == 200:
             data = response.json()
             results = create_professional_results(data, analysis_type)
-            # Re-enable button after success
-            button_content = [html.I(className="fas fa-robot me-2"), "Start Analysis"]
-            return results, None, False, button_content
+            return results, None
         else:
             error = dbc.Alert([
                 html.I(className="fas fa-exclamation-circle me-2"),
                 f"Analysis failed: {response.text}"
             ], color="danger", style={'borderRadius': '12px'})
-            # Re-enable button after error
-            button_content = [html.I(className="fas fa-robot me-2"), "Start Analysis"]
-            return error, None, False, button_content
-
+            return error, None
+            
     except Exception as e:
         error = dbc.Alert([
             html.I(className="fas fa-exclamation-triangle me-2"),
             f"Error: {str(e)}"
         ], color="warning", style={'borderRadius': '12px'})
-        # Re-enable button after error
-        button_content = [html.I(className="fas fa-robot me-2"), "Start Analysis"]
-        return error, None, False, button_content
+        return error, None
 
 def create_professional_results(data, analysis_type):
     """Create professional results display with all sections."""
@@ -1937,16 +1911,18 @@ def load_saved_analyses(n_clicks, pathname):
 
             if not analyses:
                 return html.Div([
-                    html.I(className="fas fa-inbox", style={'fontSize': '32px', 'color': COLORS['text_muted'], 'display': 'block', 'textAlign': 'center', 'marginBottom': '12px'}),
-                    html.P("No saved analyses",
-                          style={'color': COLORS['text_muted'], 'textAlign': 'center', 'fontSize': '13px', 'marginBottom': '0'})
-                ], style={'padding': '24px 0', 'textAlign': 'center'})
+                    html.P([
+                        html.I(className="fas fa-inbox", style={'fontSize': '48px', 'color': '#6C7293', 'marginBottom': '16px'}),
+                    ], style={'textAlign': 'center'}),
+                    html.P("No saved analyses yet. Upload files to create your first analysis.",
+                          style={'color': '#6C7293', 'textAlign': 'center'})
+                ], style={'padding': '40px 20px'})
 
-            # Create compact cards for sidebar
+            # Create cards for each analysis
             cards = []
             for analysis in analyses[:10]:  # Show max 10 recent
                 # Format timestamp
-                timestamp = datetime.fromisoformat(analysis['timestamp']).strftime('%b %d')
+                timestamp = datetime.fromisoformat(analysis['timestamp']).strftime('%b %d, %Y %I:%M %p')
 
                 # Get recommendation color
                 recommendation = analysis.get('recommendation', 'Unknown')
@@ -1957,46 +1933,68 @@ def load_saved_analyses(n_clicks, pathname):
                     'Pass': COLORS['danger']
                 }.get(recommendation, COLORS['text_muted'])
 
-                score = analysis.get('scores', {}).get('overall_weighted', 0)
-
-                card = html.Div([
-                    # Click area to load
-                    html.Div([
-                        html.Div([
-                            html.Div([
-                                html.Span(analysis['company_name'],
-                                        className='company-name',
-                                        style={'color': COLORS['text_primary'], 'fontSize': '13px', 'fontWeight': '600', 'display': 'block', 'marginBottom': '4px', 'whiteSpace': 'normal', 'wordBreak': 'break-word', 'lineHeight': '1.3'}),
+                card = dbc.Card([
+                    dbc.CardBody([
+                        dbc.Row([
+                            dbc.Col([
                                 html.Div([
-                                    html.Span(timestamp, className='text-truncate', style={'color': COLORS['text_muted'], 'fontSize': '11px', 'marginRight': '8px'}),
-                                    html.Span(f"{score:.0f}", style={'color': rec_color, 'fontSize': '11px', 'fontWeight': '600', 'flexShrink': '0'}),
-                                ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '6px', 'overflow': 'hidden'}),
-                                html.Span(recommendation[:4],  # Abbreviate (Strong Buy -> Stro)
-                                        className='recommendation-badge',
+                                    html.H5(analysis['company_name'],
+                                           style={'color': COLORS['text_primary'], 'fontWeight': '600', 'marginBottom': '8px'}),
+                                    html.Div([
+                                        html.Span([
+                                            html.I(className="fas fa-calendar-alt me-2"),
+                                            timestamp
+                                        ], style={'color': COLORS['text_muted'], 'fontSize': '13px', 'marginRight': '16px'}),
+                                        html.Span([
+                                            html.I(className="fas fa-chart-line me-2"),
+                                            f"Score: {analysis.get('scores', {}).get('overall_weighted', 0)}/100"
+                                        ], style={'color': COLORS['text_muted'], 'fontSize': '13px'})
+                                    ])
+                                ])
+                            ], width=7),
+                            dbc.Col([
+                                html.Div([
+                                    dbc.Badge(
+                                        recommendation,
+                                        color="light",
                                         style={
                                             'backgroundColor': f"{rec_color}20",
                                             'color': rec_color,
-                                            'border': f"1px solid {rec_color}40",
-                                            'padding': '2px 8px',
-                                            'borderRadius': '4px',
-                                            'fontSize': '10px',
+                                            'border': f"1px solid {rec_color}",
                                             'fontWeight': '600',
-                                            'display': 'inline-block'
-                                        })
-                            ])
-                        ], id={'type': 'load-analysis-btn', 'index': analysis['id']},
-                           style={'flex': '1', 'cursor': 'pointer'}),
-
-                        # Delete button
-                        html.Div([
-                            html.I(className="fas fa-trash",
-                                  id={'type': 'delete-analysis-btn', 'index': analysis['id']},
-                                  style={'color': COLORS['text_muted'], 'fontSize': '12px', 'cursor': 'pointer', 'padding': '4px'})
-                        ], style={'marginLeft': '8px'})
-
-                    ], style={'display': 'flex', 'alignItems': 'flex-start', 'padding': '12px', 'background': COLORS['surface'], 'border': f"1px solid {COLORS['border']}", 'borderRadius': '8px', 'marginBottom': '8px', 'transition': 'all 0.2s ease'}),
-
-                ], className='analysis-card')
+                                            'padding': '8px 16px'
+                                        }
+                                    )
+                                ], style={'textAlign': 'right'})
+                            ], width=3),
+                            dbc.Col([
+                                html.Div([
+                                    dbc.Button(
+                                        html.I(className="fas fa-eye"),
+                                        id={'type': 'load-analysis-btn', 'index': analysis['id']},
+                                        color="primary",
+                                        size="sm",
+                                        className="me-2",
+                                        title="View Analysis"
+                                    ),
+                                    dbc.Button(
+                                        html.I(className="fas fa-trash"),
+                                        id={'type': 'delete-analysis-btn', 'index': analysis['id']},
+                                        color="danger",
+                                        size="sm",
+                                        title="Delete Analysis"
+                                    )
+                                ], style={'textAlign': 'right'})
+                            ], width=2)
+                        ])
+                    ])
+                ], style={
+                    'backgroundColor': COLORS['surface'],
+                    'border': f"1px solid {COLORS['border']}",
+                    'marginBottom': '12px',
+                    'cursor': 'pointer',
+                    'transition': 'all 0.3s ease'
+                }, className='hover-card')
 
                 cards.append(card)
 

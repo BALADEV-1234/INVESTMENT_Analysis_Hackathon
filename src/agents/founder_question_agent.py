@@ -340,22 +340,35 @@ class FounderQuestionAgent(BaseAgent):
         
         # Run the question generation workflow
         result = await self.workflow.ainvoke(initial_state)
-        
+
         if result.get("error"):
             return {
-                "questions": f"Error generating questions: {result['error']}",
-                "metadata": result["metadata"],
-                "error": result["error"]
+                "questions": f"Error generating questions: {result.get('error', 'Unknown error')}",
+                "metadata": result.get("metadata", {}),
+                "error": result.get("error", "Unknown error")
             }
-        
+
+        # Guardrail: Safely access result fields
+        metadata = result.get("metadata", {})
+        final_summary = result.get("final_summary", "")
+
+        if not final_summary:
+            return {
+                "questions": "Question generation completed but no questions generated",
+                "metadata": metadata,
+                "gaps_identified": "",
+                "categories": {},
+                "error": "missing_final_summary"
+            }
+
         return {
-            "questions": result["final_summary"],
-            "metadata": result["metadata"],
-            "gaps_identified": result["metadata"].get("identified_gaps", ""),
+            "questions": final_summary,
+            "metadata": metadata,
+            "gaps_identified": metadata.get("identified_gaps", ""),
             "categories": {
-                "domain": result["metadata"].get("domain_questions", ""),
-                "alignment": result["metadata"].get("alignment_questions", ""),
-                "risk": result["metadata"].get("risk_questions", "")
+                "domain": metadata.get("domain_questions", ""),
+                "alignment": metadata.get("alignment_questions", ""),
+                "risk": metadata.get("risk_questions", "")
             }
         }
     

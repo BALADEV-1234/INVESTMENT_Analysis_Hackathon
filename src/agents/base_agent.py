@@ -25,7 +25,13 @@ class AgentState(TypedDict):
 
 class BaseAgent(ABC):
     """Base class for all specialized agents."""
-    
+
+    # Guardrails: Agent execution limits
+    AGENT_TIMEOUT_SECONDS = 90
+    MAX_CONTENT_LENGTH = 1_000_000  # 1M characters
+    MAX_CHUNKS = 100  # Maximum number of chunks to process
+    MIN_CONTENT_LENGTH = 10  # Minimum meaningful content
+
     def __init__(self):
         """Initialize the base agent with LLM, text splitter, and StateGraph."""
         self.llm = ChatGoogleGenerativeAI(
@@ -70,38 +76,92 @@ class BaseAgent(ABC):
     async def analyze(self, content: str) -> Dict[str, Any]:
         """Main analysis method using LangGraph workflow."""
         try:
-            # Initialize state
-            initial_state = AgentState(
-                raw_text=content,
-                chunks=[],
-                chunk_summaries=[],
-                final_summary="",
-                error=None,
-                metadata={"agent_type": self.__class__.__name__}
+            # Guardrail: Wrap analysis in timeout
+            result = await asyncio.wait_for(
+                self._analyze_internal(content),
+                timeout=self.AGENT_TIMEOUT_SECONDS
             )
-            
-            # Run the workflow
-            result = await self.workflow.ainvoke(initial_state)
-            
-            if result.get("error"):
-                return {
-                    "analysis": f"Error during analysis: {result['error']}",
-                    "confidence": 0.0,
-                    "error": result["error"]
-                }
-            
+            return result
+
+        except asyncio.TimeoutError:
             return {
-                "analysis": result["final_summary"],
-                "confidence": self._calculate_confidence(result),
-                "metadata": result["metadata"]
+                "analysis": f"Agent {self.__class__.__name__} exceeded {self.AGENT_TIMEOUT_SECONDS}s timeout",
+                "confidence": 0.0,
+                "error": "timeout",
+                "metadata": {
+                    "agent_type": self.__class__.__name__,
+                    "timeout_seconds": self.AGENT_TIMEOUT_SECONDS,
+                    "status": "timeout"
+                }
             }
-            
+
         except Exception as e:
             return {
                 "analysis": f"Error during analysis: {str(e)}",
                 "confidence": 0.0,
-                "error": str(e)
+                "error": str(e),
+                "metadata": {"agent_type": self.__class__.__name__}
             }
+
+    async def _analyze_internal(self, content: str) -> Dict[str, Any]:
+        """Internal analysis logic separated for timeout handling."""
+
+        # Guardrail: Validate content length
+        if len(content) < self.MIN_CONTENT_LENGTH:
+            return {
+                "analysis": f"Content too short to analyze (minimum {self.MIN_CONTENT_LENGTH} characters)",
+                "confidence": 0.0,
+                "error": "content_too_short",
+                "metadata": {"agent_type": self.__class__.__name__, "content_length": len(content)}
+            }
+
+        if len(content) > self.MAX_CONTENT_LENGTH:
+            # Truncate instead of failing
+            content = content[:self.MAX_CONTENT_LENGTH]
+            truncated = True
+        else:
+            truncated = False
+
+        # Initialize state
+        initial_state = AgentState(
+            raw_text=content,
+            chunks=[],
+            chunk_summaries=[],
+            final_summary="",
+            error=None,
+            metadata={
+                "agent_type": self.__class__.__name__,
+                "content_truncated": truncated,
+                "original_length": len(content)
+            }
+        )
+
+        # Run the workflow
+        result = await self.workflow.ainvoke(initial_state)
+
+        if result.get("error"):
+            return {
+                "analysis": f"Error during analysis: {result.get('error', 'Unknown error')}",
+                "confidence": 0.0,
+                "error": result.get("error", "Unknown error"),
+                "metadata": result.get("metadata", {})
+            }
+
+        # Guardrail: Safely access result fields
+        final_summary = result.get("final_summary", "")
+        if not final_summary:
+            return {
+                "analysis": "Analysis completed but no summary generated",
+                "confidence": 0.0,
+                "error": "missing_final_summary",
+                "metadata": result.get("metadata", {})
+            }
+
+        return {
+            "analysis": final_summary,
+            "confidence": self._calculate_confidence(result),
+            "metadata": result.get("metadata", {})
+        }
 
     @traceable(name="chunk_text_node")
     async def _chunk_text_node(self, state: AgentState) -> AgentState:
@@ -111,18 +171,26 @@ class BaseAgent(ABC):
             if not chunks:
                 state["error"] = "No text chunks produced"
                 return state
-            
+
+            # Guardrail: Limit number of chunks to prevent memory issues
+            if len(chunks) > self.MAX_CHUNKS:
+                print(f"⚠ Warning: {len(chunks)} chunks produced, limiting to {self.MAX_CHUNKS}")
+                chunks = chunks[:self.MAX_CHUNKS]
+                state["metadata"]["chunks_truncated"] = True
+                state["metadata"]["original_chunk_count"] = len(chunks)
+
             state["chunks"] = chunks
             state["metadata"]["num_chunks"] = len(chunks)
             state["metadata"]["avg_chunk_length"] = sum(len(chunk) for chunk in chunks) / len(chunks)
-            
+
             # Add LangSmith metadata
             if os.getenv("LANGSMITH_API_KEY"):
                 langsmith.get_current_run_tree().add_metadata({
                     "num_chunks": len(chunks),
-                    "avg_chunk_length": state["metadata"]["avg_chunk_length"]
+                    "avg_chunk_length": state["metadata"]["avg_chunk_length"],
+                    "chunks_truncated": state["metadata"].get("chunks_truncated", False)
                 })
-            
+
             return state
         except Exception as e:
             state["error"] = f"Error chunking text: {str(e)}"
@@ -173,7 +241,16 @@ class BaseAgent(ABC):
             
             messages = reduce_prompt.format_messages(summaries=joined)
             response = await self.llm.ainvoke(messages)
-            
+
+            # Guardrail: Validate LLM response
+            if not response or not response.content:
+                state["error"] = "LLM returned empty response in reduce phase"
+                return state
+
+            if len(response.content) < 50:  # Suspiciously short
+                state["error"] = f"LLM response too short: {len(response.content)} chars"
+                return state
+
             state["final_summary"] = response.content
             state["metadata"]["final_summary_length"] = len(response.content)
             state["metadata"]["input_summaries_count"] = len(summaries)
@@ -198,6 +275,14 @@ class BaseAgent(ABC):
             prompt = self.get_analysis_prompt()
             messages = prompt.format_messages(content=chunk)
             response = await self.llm.ainvoke(messages)
+
+            # Guardrail: Validate LLM response
+            if not response or not response.content:
+                return "Error: LLM returned empty response"
+
+            if len(response.content) < 20:  # Suspiciously short for a summary
+                return f"Error: LLM response too short ({len(response.content)} chars)"
+
             return response.content
         except Exception as e:
             return f"Error analyzing chunk: {str(e)}"

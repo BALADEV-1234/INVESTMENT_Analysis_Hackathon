@@ -10,6 +10,7 @@ import langsmith
 
 # Import enhanced multi-agent system
 from src.core.enhanced_multi_agent_orchestrator import EnhancedMultiAgentOrchestrator
+from src.storage import AnalysisStorage
 
 load_dotenv()
 
@@ -47,6 +48,9 @@ app = FastAPI(
 # Initialize enhanced orchestrator
 orchestrator = EnhancedMultiAgentOrchestrator()
 
+# Initialize storage
+storage = AnalysisStorage()
+
 @app.post("/analyze")
 @traceable(name="enhanced_investment_analysis")
 async def analyze_investment(files: List[UploadFile] = File(...)):
@@ -67,9 +71,21 @@ async def analyze_investment(files: List[UploadFile] = File(...)):
     try:
         # Process files through enhanced multi-agent system
         analysis_result = await orchestrator.analyze_files(files)
-        
-        return {
+
+        # Auto-save to local storage
+        company_name = analysis_result.get("web_intelligence", {}).get("company_info", {}).get("name")
+        if not company_name:
+            company_name = "Unknown Company"
+
+        storage_record = await storage.save_analysis(
+            company_name=company_name,
+            analysis_result=analysis_result
+        )
+
+        response = {
             "status": "success",
+            "saved_id": storage_record["id"],  # Include storage ID
+            "company_name": company_name,
             "investment_summary": analysis_result["final_summary"]["analysis"],
             "investment_scores": analysis_result["investment_scores"],
             "founder_questions": analysis_result["founder_questions"],
@@ -87,9 +103,13 @@ async def analyze_investment(files: List[UploadFile] = File(...)):
             "processing_summary": analysis_result["file_processing_summary"],
             "metadata": analysis_result["metadata"]
         }
+
+        print(f"✓ Analysis saved with ID: {storage_record['id']}")
+        return response
+
     except Exception as e:
         raise HTTPException(
-            status_code=500, 
+            status_code=500,
             detail=f"Analysis failed: {str(e)}"
         )
 
@@ -250,6 +270,97 @@ async def get_investment_scores(files: List[UploadFile] = File(...)):
             detail=f"Scoring failed: {str(e)}"
         )
 
+@app.get("/analyses")
+async def list_saved_analyses(company_name: str = None, limit: int = 50):
+    """
+    List all saved analyses.
+
+    Query Parameters:
+    - company_name: Filter by company name (partial match)
+    - limit: Maximum number of results (default: 50)
+    """
+    try:
+        analyses = await storage.list_analyses(company_name=company_name, limit=limit)
+        return {
+            "status": "success",
+            "total": len(analyses),
+            "analyses": analyses
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list analyses: {str(e)}")
+
+
+@app.get("/analyses/{analysis_id}")
+async def get_saved_analysis(analysis_id: str):
+    """
+    Retrieve a specific saved analysis by ID.
+    """
+    try:
+        analysis = await storage.load_analysis(analysis_id)
+        if not analysis:
+            raise HTTPException(status_code=404, detail=f"Analysis not found: {analysis_id}")
+
+        # Return in same format as /analyze endpoint
+        return {
+            "status": "success",
+            "saved_id": analysis_id,
+            "company_name": analysis.get("web_intelligence", {}).get("company_info", {}).get("name", "Unknown"),
+            "investment_summary": analysis["final_summary"]["analysis"],
+            "investment_scores": analysis["investment_scores"],
+            "founder_questions": analysis["founder_questions"],
+            "confidence_score": analysis["final_summary"].get("confidence", 0.0),
+            "specialized_analyses": {
+                result["agent"]: {
+                    "analysis": result["analysis"],
+                    "confidence": result.get("confidence", 0.0)
+                }
+                for result in analysis["agent_analyses"]
+                if result.get("agent") != "error"
+            },
+            "web_intelligence": analysis["web_intelligence"],
+            "identified_gaps": analysis["identified_gaps"],
+            "processing_summary": analysis["file_processing_summary"],
+            "metadata": analysis["metadata"]
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to load analysis: {str(e)}")
+
+
+@app.delete("/analyses/{analysis_id}")
+async def delete_saved_analysis(analysis_id: str):
+    """
+    Delete a saved analysis by ID.
+    """
+    try:
+        success = await storage.delete_analysis(analysis_id)
+        if not success:
+            raise HTTPException(status_code=404, detail=f"Analysis not found: {analysis_id}")
+
+        return {
+            "status": "success",
+            "message": f"Analysis {analysis_id} deleted successfully"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete analysis: {str(e)}")
+
+
+@app.get("/storage/stats")
+async def get_storage_stats():
+    """Get statistics about stored analyses."""
+    try:
+        stats = storage.get_storage_stats()
+        return {
+            "status": "success",
+            "stats": stats
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}")
+
+
 @app.get("/")
 async def root():
     """Health check endpoint."""
@@ -261,7 +372,8 @@ async def root():
             "Multi-agent analysis",
             "Web search intelligence",
             "Investment scoring framework",
-            "Founder question generation"
+            "Founder question generation",
+            "Local analysis storage"
         ]
     }
 

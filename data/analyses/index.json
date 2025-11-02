@@ -1,0 +1,33 @@
+[
+  {
+    "id": "airbed_breakfast_20251028_235634",
+    "company_name": "AirBed&Breakfast",
+    "timestamp": "2025-10-28T23:56:34.319244",
+    "filename": "airbed_breakfast_20251028_235634.json",
+    "scores": {
+      "team": 55,
+      "market": 45,
+      "product": 80,
+      "traction": 85,
+      "financials": 55,
+      "moat": 55,
+      "overall_weighted": 63.5,
+      "weights": {
+        "team": 0.25,
+        "market": 0.25,
+        "product": 0.2,
+        "traction": 0.2,
+        "financials": 0.05,
+        "moat": 0.05
+      },
+      "recommendation": "Buy"
+    },
+    "recommendation": "Buy",
+    "confidence": 0.84,
+    "metadata": {
+      "files_processed": 1,
+      "processing_time": 137.462929,
+      "web_search_performed": true
+    }
+  }
+]

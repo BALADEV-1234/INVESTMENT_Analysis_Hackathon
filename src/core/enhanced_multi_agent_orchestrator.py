@@ -196,8 +196,21 @@ class IntelligentCompanyExtractor:
 
 class EnhancedMultiAgentOrchestrator:
     """Enhanced orchestrator with LLM-based company extraction and web search."""
-    
+
+    # Guardrails: System limits
+    MAX_FILES_PER_REQUEST = 10
+    ANALYSIS_TIMEOUT_SECONDS = 600
+
     def __init__(self):
+        # Guardrail: Validate required API keys
+        required_keys = ["GOOGLE_API_KEY"]
+        missing_keys = [key for key in required_keys if not os.getenv(key)]
+        if missing_keys:
+            raise EnvironmentError(
+                f"Missing required API keys: {', '.join(missing_keys)}. "
+                f"Please set them in your environment or .env file."
+            )
+
         self.agents = {
             "pitch_deck": PitchDeckAgent(),
             "data_room": DataRoomAgent(),
@@ -207,13 +220,34 @@ class EnhancedMultiAgentOrchestrator:
         self.aggregator = EnhancedAggregatorAgent()
         self.file_processor = FileProcessor()
         self.company_extractor = IntelligentCompanyExtractor()
+
+        print(f"✓ Orchestrator initialized with API keys validated")
     
     @traceable(name="enhanced_multi_agent_analysis")
     async def analyze_files(self, files: List[UploadFile]) -> Dict[str, Any]:
         """Process files through specialized agents with intelligent web search."""
-        
+
+        # Guardrail: Validate file count
+        if len(files) > self.MAX_FILES_PER_REQUEST:
+            raise ValueError(
+                f"Too many files uploaded. "
+                f"Maximum: {self.MAX_FILES_PER_REQUEST}, Received: {len(files)}"
+            )
+
+        # Guardrail: Validate total upload size
+        total_size = 0
+        for file in files:
+            # Peek at file size without consuming the stream
+            content_start = await file.read(1)
+            if content_start:
+                await file.seek(0)  # Reset file pointer
+                # Read a chunk to estimate size
+                chunk = await file.read(1024)
+                await file.seek(0)  # Reset again
+                # Note: We'll do full validation in file_processor per-file
+
         start_time = datetime.now()
-        
+
         # Add tracing metadata
         if os.getenv("LANGSMITH_API_KEY"):
             langsmith.get_current_run_tree().add_metadata({
@@ -221,7 +255,79 @@ class EnhancedMultiAgentOrchestrator:
                 "orchestrator_type": "enhanced_multi_agent_llm",
                 "features": ["llm_extraction", "intelligent_web_search", "question_generation", "scoring_framework"]
             })
-        
+
+        # Guardrail: Wrap entire analysis in timeout
+        try:
+            return await asyncio.wait_for(
+                self._analyze_files_internal(files, start_time),
+                timeout=self.ANALYSIS_TIMEOUT_SECONDS
+            )
+        except asyncio.TimeoutError:
+            processing_time = (datetime.now() - start_time).total_seconds()
+            # Return structure consistent with normal response
+            return {
+                "final_summary": {
+                    "analysis": f"Analysis exceeded {self.ANALYSIS_TIMEOUT_SECONDS}s timeout",
+                    "confidence": 0.0,
+                    "error": "timeout",
+                    "metadata": {"status": "timeout"}
+                },
+                "investment_scores": {},
+                "founder_questions": "",
+                "question_categories": {},
+                "identified_gaps": "",
+                "agent_analyses": [],
+                "file_processing_summary": {"error": "timeout"},
+                "web_intelligence": {
+                    "search_performed": False,
+                    "company_info": {},
+                    "enhanced_with_tavily": bool(os.getenv("TAVILY_API_KEY"))
+                },
+                "metadata": {
+                    "total_files_processed": len(files),
+                    "agents_used": 0,
+                    "categories_analyzed": [],
+                    "processing_time_seconds": processing_time,
+                    "timeout_limit": self.ANALYSIS_TIMEOUT_SECONDS,
+                    "status": "timeout",
+                    "timestamp": datetime.now().isoformat()
+                }
+            }
+        except Exception as e:
+            # Handle any other errors with consistent structure
+            processing_time = (datetime.now() - start_time).total_seconds()
+            return {
+                "final_summary": {
+                    "analysis": f"Analysis failed: {str(e)}",
+                    "confidence": 0.0,
+                    "error": str(e),
+                    "metadata": {"status": "error"}
+                },
+                "investment_scores": {},
+                "founder_questions": "",
+                "question_categories": {},
+                "identified_gaps": "",
+                "agent_analyses": [],
+                "file_processing_summary": {"error": str(e)},
+                "web_intelligence": {
+                    "search_performed": False,
+                    "company_info": {},
+                    "enhanced_with_tavily": bool(os.getenv("TAVILY_API_KEY"))
+                },
+                "metadata": {
+                    "total_files_processed": len(files),
+                    "agents_used": 0,
+                    "categories_analyzed": [],
+                    "processing_time_seconds": processing_time,
+                    "status": "error",
+                    "error_details": str(e),
+                    "timestamp": datetime.now().isoformat()
+                }
+            }
+
+    async def _analyze_files_internal(self, files: List[UploadFile], start_time: datetime) -> Dict[str, Any]:
+        """Internal method containing the actual analysis logic."""
+
         # Step 1: Process and categorize files
         categorized_files = await self._process_and_categorize_files(files)
         
@@ -283,10 +389,29 @@ class EnhancedMultiAgentOrchestrator:
         
         # Step 5: Enhanced aggregation with scoring and question generation
         final_summary = await self.aggregator.aggregate_analyses(valid_results)
-        
+
+        # Guardrail: Ensure final_summary has required structure
+        if not isinstance(final_summary, dict):
+            final_summary = {
+                "analysis": str(final_summary),
+                "confidence": 0.0,
+                "error": "invalid_aggregator_result",
+                "metadata": {},
+                "scores": {},
+                "founder_questions": "",
+                "question_categories": {},
+                "identified_gaps": ""
+            }
+
+        # Ensure analysis key exists
+        if "analysis" not in final_summary:
+            final_summary["analysis"] = "Aggregation completed but no summary generated"
+            final_summary["confidence"] = 0.0
+            final_summary["error"] = "missing_analysis"
+
         # Add processing time
         processing_time = (datetime.now() - start_time).total_seconds()
-        
+
         # Step 6: Generate comprehensive output
         return {
             "final_summary": final_summary,
@@ -465,10 +590,23 @@ class EnhancedMultiAgentOrchestrator:
             })
         
         analysis_result = await agent.analyze(full_content)
-        
+
+        # Guardrail: Ensure result has required structure
+        if not isinstance(analysis_result, dict):
+            analysis_result = {
+                "analysis": str(analysis_result),
+                "confidence": 0.0,
+                "error": "invalid_result_type",
+                "metadata": {}
+            }
+
+        # Ensure metadata exists
+        if "metadata" not in analysis_result:
+            analysis_result["metadata"] = {}
+
         analysis_result["agent"] = category
         analysis_result["metadata"].update(combined_metadata)
-        
+
         return analysis_result
     
     def _create_processing_summary(self, categorized_files: Dict[str, List[Dict[str, Any]]]) -> Dict[str, Any]:

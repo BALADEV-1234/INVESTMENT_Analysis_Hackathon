@@ -12,12 +12,24 @@ import mimetypes
 
 class FileProcessor:
     """Handles file processing and content extraction for multiple file types."""
-    
+
+    # Guardrails: File size limits
+    MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB per file
+    MAX_TOTAL_SIZE_BYTES = 100 * 1024 * 1024  # 100 MB total
+
     @staticmethod
     async def extract_text_from_upload(file: UploadFile) -> Tuple[str, Dict[str, Any]]:
         """Extract text from uploaded file and return content with metadata."""
         filename = (file.filename or "").lower()
         content = await file.read()
+
+        # Guardrail: Validate file size
+        if len(content) > FileProcessor.MAX_FILE_SIZE_BYTES:
+            raise ValueError(
+                f"File '{file.filename}' exceeds maximum size. "
+                f"Size: {len(content) / (1024*1024):.2f}MB, "
+                f"Limit: {FileProcessor.MAX_FILE_SIZE_BYTES / (1024*1024):.0f}MB"
+            )
         
         metadata = {
             "filename": file.filename,
@@ -30,36 +42,42 @@ class FileProcessor:
             # Text files
             if filename.endswith((".txt", ".md")):
                 text_content = FileProcessor._extract_text_content(content)
+                text_content = FileProcessor._validate_extracted_content(text_content, filename)
                 metadata["processing_method"] = "text_decode"
                 return text_content, metadata
             
             # CSV files
             elif filename.endswith(".csv"):
                 text_content = FileProcessor._extract_csv_content(content)
+                text_content = FileProcessor._validate_extracted_content(text_content, filename)
                 metadata["processing_method"] = "csv_parse"
                 return text_content, metadata
-            
+
             # Excel files
             elif filename.endswith((".xlsx", ".xls")):
                 text_content = FileProcessor._extract_excel_content(content)
+                text_content = FileProcessor._validate_extracted_content(text_content, filename)
                 metadata["processing_method"] = "excel_parse"
                 return text_content, metadata
-            
+
             # PDF files
             elif filename.endswith(".pdf"):
                 text_content = FileProcessor._extract_pdf_content(content)
+                text_content = FileProcessor._validate_extracted_content(text_content, filename)
                 metadata["processing_method"] = "pdf_extract"
                 return text_content, metadata
-            
+
             # PowerPoint files
             elif filename.endswith(".pptx"):
                 text_content = FileProcessor._extract_pptx_content(content)
+                text_content = FileProcessor._validate_extracted_content(text_content, filename)
                 metadata["processing_method"] = "pptx_extract"
                 return text_content, metadata
-            
+
             # JSON files (for web scraping results)
             elif filename.endswith(".json"):
                 text_content = FileProcessor._extract_json_content(content)
+                text_content = FileProcessor._validate_extracted_content(text_content, filename)
                 metadata["processing_method"] = "json_parse"
                 return text_content, metadata
             
@@ -76,6 +94,19 @@ class FileProcessor:
         except Exception as e:
             metadata["error"] = str(e)
             return f"Error processing file {filename}: {str(e)}", metadata
+
+    @staticmethod
+    def _validate_extracted_content(content: str, filename: str) -> str:
+        """Validate extracted content and return cleaned version."""
+        # Guardrail: Check for empty or whitespace-only content
+        if not content or not content.strip():
+            return f"Warning: File '{filename}' appears to be empty or contains no extractable text"
+
+        # Guardrail: Check for suspiciously short content
+        if len(content.strip()) < 20:
+            return f"Warning: File '{filename}' contains very little text ({len(content.strip())} characters)"
+
+        return content
     
     @staticmethod
     def _extract_text_content(content: bytes) -> str:

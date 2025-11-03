@@ -155,15 +155,18 @@ class EnhancedAggregatorAgent(BaseAgent):
                 aggregation_result["founder_questions"] = questions_result.get("questions", "")
                 aggregation_result["question_categories"] = questions_result.get("categories", {})
                 aggregation_result["identified_gaps"] = questions_result.get("gaps_identified", "")
+                aggregation_result["contact_details"] = questions_result.get("contact_details", {"email": None, "phone": None})
             else:
                 aggregation_result["founder_questions"] = "Question generator not initialized"
                 aggregation_result["question_categories"] = {}
                 aggregation_result["identified_gaps"] = ""
+                aggregation_result["contact_details"] = {"email": None, "phone": None}
         except Exception as e:
             print(f"Error generating questions: {e}")
             aggregation_result["founder_questions"] = ""
             aggregation_result["question_categories"] = {}
             aggregation_result["identified_gaps"] = ""
+            aggregation_result["contact_details"] = {"email": None, "phone": None}
         
         # Calculate scores
         aggregation_result["scores"] = self._calculate_investment_scores(aggregation_result)

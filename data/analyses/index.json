@@ -1,5 +1,346 @@
 [
   {
+    "id": "timbuckdo_20251102_052610",
+    "company_name": "Timbuckdo",
+    "timestamp": "2025-11-02T05:26:10.065143",
+    "filename": "timbuckdo_20251102_052610.json",
+    "scores": {
+      "team": 55,
+      "market": 50,
+      "product": 90,
+      "traction": 60,
+      "financials": 55,
+      "moat": 100,
+      "overall_weighted": 64.0,
+      "weights": {
+        "team": 0.25,
+        "market": 0.25,
+        "product": 0.2,
+        "traction": 0.2,
+        "financials": 0.05,
+        "moat": 0.05
+      },
+      "recommendation": "Buy"
+    },
+    "recommendation": "Buy",
+    "confidence": 0.95,
+    "metadata": {
+      "files_processed": 2,
+      "processing_time": 290.515387,
+      "web_search_performed": true
+    }
+  },
+  {
+    "id": "airbed_breakfast_20251102_040409",
+    "company_name": "AirBed&Breakfast",
+    "timestamp": "2025-11-02T04:04:09.788061",
+    "filename": "airbed_breakfast_20251102_040409.json",
+    "scores": {
+      "team": 60,
+      "market": 60,
+      "product": 95,
+      "traction": 80,
+      "financials": 65,
+      "moat": 90,
+      "overall_weighted": 72.75,
+      "weights": {
+        "team": 0.25,
+        "market": 0.25,
+        "product": 0.2,
+        "traction": 0.2,
+        "financials": 0.05,
+        "moat": 0.05
+      },
+      "recommendation": "Buy"
+    },
+    "recommendation": "Buy",
+    "confidence": 0.95,
+    "metadata": {
+      "files_processed": 1,
+      "processing_time": 322.403286,
+      "web_search_performed": true
+    }
+  },
+  {
+    "id": "airbed_breakfast_20251101_110305",
+    "company_name": "AirBed&Breakfast",
+    "timestamp": "2025-11-01T11:03:05.287033",
+    "filename": "airbed_breakfast_20251101_110305.json",
+    "scores": {
+      "team": 55,
+      "market": 60,
+      "product": 90,
+      "traction": 90,
+      "financials": 65,
+      "moat": 90,
+      "overall_weighted": 72.5,
+      "weights": {
+        "team": 0.25,
+        "market": 0.25,
+        "product": 0.2,
+        "traction": 0.2,
+        "financials": 0.05,
+        "moat": 0.05
+      },
+      "recommendation": "Buy"
+    },
+    "recommendation": "Buy",
+    "confidence": 0.95,
+    "metadata": {
+      "files_processed": 1,
+      "processing_time": 352.541008,
+      "web_search_performed": true
+    }
+  },
+  {
+    "id": "timbuckdo_20251101_081904",
+    "company_name": "Timbuckdo",
+    "timestamp": "2025-11-01T08:19:04.625134",
+    "filename": "timbuckdo_20251101_081904.json",
+    "scores": {
+      "team": 65,
+      "market": 55,
+      "product": 90,
+      "traction": 65,
+      "financials": 55,
+      "moat": 100,
+      "overall_weighted": 68.75,
+      "weights": {
+        "team": 0.25,
+        "market": 0.25,
+        "product": 0.2,
+        "traction": 0.2,
+        "financials": 0.05,
+        "moat": 0.05
+      },
+      "recommendation": "Buy"
+    },
+    "recommendation": "Buy",
+    "confidence": 0.95,
+    "metadata": {
+      "files_processed": 2,
+      "processing_time": 320.810238,
+      "web_search_performed": true
+    }
+  },
+  {
+    "id": "airbed_breakfast_20251101_075843",
+    "company_name": "AirBed&Breakfast",
+    "timestamp": "2025-11-01T07:58:43.089947",
+    "filename": "airbed_breakfast_20251101_075843.json",
+    "scores": {
+      "team": 55,
+      "market": 50,
+      "product": 85,
+      "traction": 65,
+      "financials": 65,
+      "moat": 90,
+      "overall_weighted": 64.0,
+      "weights": {
+        "team": 0.25,
+        "market": 0.25,
+        "product": 0.2,
+        "traction": 0.2,
+        "financials": 0.05,
+        "moat": 0.05
+      },
+      "recommendation": "Buy"
+    },
+    "recommendation": "Buy",
+    "confidence": 0.92,
+    "metadata": {
+      "files_processed": 1,
+      "processing_time": 327.111955,
+      "web_search_performed": true
+    }
+  },
+  {
+    "id": "airbed_breakfast_20251101_074649",
+    "company_name": "AirBed&Breakfast",
+    "timestamp": "2025-11-01T07:46:49.097076",
+    "filename": "airbed_breakfast_20251101_074649.json",
+    "scores": {
+      "team": 50,
+      "market": 65,
+      "product": 90,
+      "traction": 70,
+      "financials": 65,
+      "moat": 85,
+      "overall_weighted": 68.25,
+      "weights": {
+        "team": 0.25,
+        "market": 0.25,
+        "product": 0.2,
+        "traction": 0.2,
+        "financials": 0.05,
+        "moat": 0.05
+      },
+      "recommendation": "Buy"
+    },
+    "recommendation": "Buy",
+    "confidence": 0.92,
+    "metadata": {
+      "files_processed": 1,
+      "processing_time": 324.978072,
+      "web_search_performed": true
+    }
+  },
+  {
+    "id": "airbed_breakfast_20251101_074407",
+    "company_name": "AirBed&Breakfast",
+    "timestamp": "2025-11-01T07:44:07.399169",
+    "filename": "airbed_breakfast_20251101_074407.json",
+    "scores": {
+      "team": 40,
+      "market": 40,
+      "product": 40,
+      "traction": 30,
+      "financials": 40,
+      "moat": 30,
+      "overall_weighted": 37.5,
+      "weights": {
+        "team": 0.25,
+        "market": 0.25,
+        "product": 0.2,
+        "traction": 0.2,
+        "financials": 0.05,
+        "moat": 0.05
+      },
+      "recommendation": "Pass"
+    },
+    "recommendation": "Pass",
+    "confidence": 0.0,
+    "metadata": {
+      "files_processed": 1,
+      "processing_time": 291.778962,
+      "web_search_performed": true
+    }
+  },
+  {
+    "id": "we360_ai__zenstack_private_limited__20251101_055345",
+    "company_name": "We360 AI (Zenstack Private Limited)",
+    "timestamp": "2025-11-01T05:53:45.085617",
+    "filename": "we360_ai__zenstack_private_limited__20251101_055345.json",
+    "scores": {
+      "team": 55,
+      "market": 50,
+      "product": 85,
+      "traction": 65,
+      "financials": 65,
+      "moat": 85,
+      "overall_weighted": 63.75,
+      "weights": {
+        "team": 0.25,
+        "market": 0.25,
+        "product": 0.2,
+        "traction": 0.2,
+        "financials": 0.05,
+        "moat": 0.05
+      },
+      "recommendation": "Buy"
+    },
+    "recommendation": "Buy",
+    "confidence": 0.95,
+    "metadata": {
+      "files_processed": 3,
+      "processing_time": 296.249404,
+      "web_search_performed": true
+    }
+  },
+  {
+    "id": "nithiravya_private_limited_20251101_053655",
+    "company_name": "Nithiravya Private Limited",
+    "timestamp": "2025-11-01T05:36:55.885334",
+    "filename": "nithiravya_private_limited_20251101_053655.json",
+    "scores": {
+      "team": 60,
+      "market": 45,
+      "product": 85,
+      "traction": 65,
+      "financials": 70,
+      "moat": 100,
+      "overall_weighted": 64.75,
+      "weights": {
+        "team": 0.25,
+        "market": 0.25,
+        "product": 0.2,
+        "traction": 0.2,
+        "financials": 0.05,
+        "moat": 0.05
+      },
+      "recommendation": "Buy"
+    },
+    "recommendation": "Buy",
+    "confidence": 0.95,
+    "metadata": {
+      "files_processed": 3,
+      "processing_time": 301.014841,
+      "web_search_performed": true
+    }
+  },
+  {
+    "id": "nithiravya_private_limited_20251101_045958",
+    "company_name": "Nithiravya Private Limited",
+    "timestamp": "2025-11-01T04:59:58.895445",
+    "filename": "nithiravya_private_limited_20251101_045958.json",
+    "scores": {
+      "team": 55,
+      "market": 50,
+      "product": 80,
+      "traction": 80,
+      "financials": 85,
+      "moat": 100,
+      "overall_weighted": 67.5,
+      "weights": {
+        "team": 0.25,
+        "market": 0.25,
+        "product": 0.2,
+        "traction": 0.2,
+        "financials": 0.05,
+        "moat": 0.05
+      },
+      "recommendation": "Buy"
+    },
+    "recommendation": "Buy",
+    "confidence": 0.95,
+    "metadata": {
+      "files_processed": 3,
+      "processing_time": 315.122812,
+      "web_search_performed": true
+    }
+  },
+  {
+    "id": "nithiravya_private_limited_20251101_021341",
+    "company_name": "Nithiravya Private Limited",
+    "timestamp": "2025-11-01T02:13:41.956812",
+    "filename": "nithiravya_private_limited_20251101_021341.json",
+    "scores": {
+      "team": 60,
+      "market": 50,
+      "product": 85,
+      "traction": 70,
+      "financials": 50,
+      "moat": 90,
+      "overall_weighted": 65.5,
+      "weights": {
+        "team": 0.25,
+        "market": 0.25,
+        "product": 0.2,
+        "traction": 0.2,
+        "financials": 0.05,
+        "moat": 0.05
+      },
+      "recommendation": "Buy"
+    },
+    "recommendation": "Buy",
+    "confidence": 0.95,
+    "metadata": {
+      "files_processed": 3,
+      "processing_time": 320.335696,
+      "web_search_performed": true
+    }
+  },
+  {
     "id": "airbed_breakfast_20251028_235634",
     "company_name": "AirBed&Breakfast",
     "timestamp": "2025-10-28T23:56:34.319244",

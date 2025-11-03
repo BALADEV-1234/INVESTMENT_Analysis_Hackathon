@@ -4,6 +4,7 @@ from .base_agent import BaseAgent, AgentState
 from langchain_core.prompts import ChatPromptTemplate
 from langgraph.graph import StateGraph, END
 from langsmith import traceable
+import re
 
 class FounderQuestionAgent(BaseAgent):
     """Agent that generates targeted questions for founder interviews based on analysis results."""
@@ -20,6 +21,7 @@ class FounderQuestionAgent(BaseAgent):
         workflow.add_node("generate_domain_questions", self._generate_domain_questions_node)
         workflow.add_node("generate_alignment_questions", self._generate_alignment_questions_node)
         workflow.add_node("generate_risk_questions", self._generate_risk_questions_node)
+        workflow.add_node("extract_contact_details", self._extract_contact_details_node)
         workflow.add_node("compile_questions", self._compile_questions_node)
         
         # Define flow
@@ -27,7 +29,8 @@ class FounderQuestionAgent(BaseAgent):
         workflow.add_edge("analyze_gaps", "generate_domain_questions")
         workflow.add_edge("generate_domain_questions", "generate_alignment_questions")
         workflow.add_edge("generate_alignment_questions", "generate_risk_questions")
-        workflow.add_edge("generate_risk_questions", "compile_questions")
+        workflow.add_edge("generate_risk_questions", "extract_contact_details")
+        workflow.add_edge("extract_contact_details", "compile_questions")
         workflow.add_edge("compile_questions", END)
         
         return workflow.compile()
@@ -233,6 +236,46 @@ class FounderQuestionAgent(BaseAgent):
             state["error"] = f"Error generating risk questions: {str(e)}"
             return state
     
+    @traceable(name="extract_contact_details")
+    async def _extract_contact_details_node(self, state: AgentState) -> AgentState:
+        """Extract founder contact details (email, phone) from the content."""
+        try:
+            content = state["raw_text"]
+            
+            contact_prompt = ChatPromptTemplate.from_messages([
+                ("system", "You are an expert at extracting contact information like email addresses and phone numbers from text. Respond with ONLY the found information in the format: 'Email: [email] | Phone: [phone]'. If not found, use 'Not found'."),
+                ("human", "Extract the primary contact email and phone number from this content:\n\n{content}")
+            ])
+            
+            messages = contact_prompt.format_messages(content=content[:10000]) # Search in a larger chunk
+            response = await self.llm.ainvoke(messages)
+            
+            email_match = re.search(r'[\w\.-]+@[\w\.-]+', response.content)
+            phone_match = re.search(r'(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', response.content)
+            
+            email = email_match.group(0) if email_match else None
+            phone = phone_match.group(0) if phone_match else None
+
+            # A simpler regex fallback on the raw text if LLM fails
+            if not email:
+                email_match_raw = re.search(r'[\w\.-]+@[\w\.-]+', content)
+                if email_match_raw:
+                    email = email_match_raw.group(0)
+
+            contact_details = {
+                "email": email,
+                "phone": phone
+            }
+            
+            state["metadata"]["contact_details"] = contact_details
+            return state
+            
+        except Exception as e:
+            state["error"] = f"Error extracting contact details: {str(e)}"
+            state["metadata"]["contact_details"] = {"email": None, "phone": None}
+            return state
+
+
     @traceable(name="compile_questions")
     async def _compile_questions_node(self, state: AgentState) -> AgentState:
         """Compile and prioritize all generated questions."""
@@ -369,7 +412,8 @@ class FounderQuestionAgent(BaseAgent):
                 "domain": metadata.get("domain_questions", ""),
                 "alignment": metadata.get("alignment_questions", ""),
                 "risk": metadata.get("risk_questions", "")
-            }
+            },
+            "contact_details": metadata.get("contact_details", {"email": None, "phone": None})
         }
     
     def _format_analysis_for_questions(self, aggregated_analysis: Dict[str, Any]) -> str:

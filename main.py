@@ -2,24 +2,37 @@
 import os
 import asyncio
 from typing import List
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from dotenv import load_dotenv
+from pydantic import BaseModel
+import logging
+import socket
 from langsmith import traceable
 import langsmith
 
+# Email sending imports
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+from langchain_google_genai import ChatGoogleGenerativeAI
 # Import enhanced multi-agent system
 from src.core.enhanced_multi_agent_orchestrator import EnhancedMultiAgentOrchestrator
 from src.storage import AnalysisStorage
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 load_dotenv()
 
 # Configuration
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
 
-if not GOOGLE_API_KEY:
-    raise RuntimeError("Please set GOOGLE_API_KEY in environment or .env file")
+if not GOOGLE_APPLICATION_CREDENTIALS:
+    raise RuntimeError("Please set GOOGLE_APPLICATION_CREDENTIALS in environment or .env file")
 
 if not TAVILY_API_KEY:
     print("⚠ Warning: TAVILY_API_KEY not set. Web search features will be limited.")
@@ -50,6 +63,11 @@ orchestrator = EnhancedMultiAgentOrchestrator()
 
 # Initialize storage
 storage = AnalysisStorage()
+
+# Initialize LLM for email drafting
+email_llm = ChatGoogleGenerativeAI(
+    model=os.getenv("LLM_MODEL", "gemini-1.5-flash-latest"), temperature=0.3
+)
 
 @app.post("/analyze")
 @traceable(name="enhanced_investment_analysis")
@@ -412,7 +430,7 @@ async def health():
             "recommendations": ["Strong Buy (75+)", "Buy (60-74)", "Hold (45-59)", "Pass (<45)"]
         },
         "api_keys_status": {
-            "google_ai": bool(GOOGLE_API_KEY),
+            "google_ai": bool(GOOGLE_APPLICATION_CREDENTIALS),
             "tavily_search": bool(TAVILY_API_KEY),
             "langsmith_tracing": bool(LANGSMITH_API_KEY)
         },
@@ -484,6 +502,112 @@ async def list_agents():
         }
     }
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+class EmailData(BaseModel):
+    to_email: str
+    subject: str
+    body: str
+
+def send_email_direct(to_email: str, subject: str, body: str):
+    """Directly sends an email using smtplib."""
+    smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
+    smtp_port = int(os.getenv('SMTP_PORT', 587))
+    smtp_username = os.getenv('SMTP_USERNAME', 'foresvest@gmail.com')
+    smtp_password = os.getenv('SMTP_PASSWORD')
+    sender_email = os.getenv('SENDER_EMAIL', smtp_username)
+
+    if not smtp_password:
+        logging.error("SMTP_PASSWORD is not set in the environment. Cannot send email.")
+        raise ValueError("SMTP_PASSWORD is not set in the environment.")
+
+    msg = MIMEMultipart()
+    msg['From'] = sender_email
+    msg['To'] = to_email
+    msg['Subject'] = subject
+    msg.attach(MIMEText(body, 'plain'))
+
+    logging.info(f"Attempting to send email to {to_email} from {sender_email} via {smtp_server}:{smtp_port}")
+
+    try:
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.set_debuglevel(0)  # Set to 1 for verbose SMTP debug output
+            server.starttls()
+            server.login(smtp_username, smtp_password)
+            server.send_message(msg)
+        logging.info(f"Email successfully sent to {to_email}")
+    except smtplib.SMTPAuthenticationError as e:
+        logging.error(f"SMTP Authentication failed for user {smtp_username}: {e}")
+        error_message = f"SMTP Authentication failed: {e}. If using Gmail, ensure you are using an App Password."
+        raise ValueError(error_message) from e
+    except (socket.gaierror, ConnectionRefusedError, smtplib.SMTPConnectError) as e:
+        logging.error(f"SMTP Connection Error to {smtp_server}:{smtp_port}: {e}")
+        raise ConnectionError(f"Failed to connect to SMTP server {smtp_server}. Please check the server address and port.") from e
+    except Exception as e:
+        logging.error(f"An unexpected error occurred while sending email: {e}", exc_info=True)
+        raise RuntimeError(f"An unexpected error occurred while sending email: {e}") from e
+
+
+class EmailDraftRequest(BaseModel):
+    company_name: str
+    investment_summary: str
+    identified_gaps: str
+
+@app.post("/generate_email_draft")
+@traceable(name="generate_founder_email_draft")
+async def generate_email_draft(request: EmailDraftRequest):
+    """Generates a draft email to the founder using an LLM."""
+    try:
+        prompt = f"""
+        You are an investment analyst at Foresvest. Your task is to draft a concise and professional email to the founder of a company we just analyzed.
+
+        Your goal is to:
+        1.  Create a clear subject line: "Request for an interview for clarification regarding {request.company_name}".
+        2.  Briefly mention that we have completed an initial analysis.
+        3.  Summarize the key discussion points based on the provided summary and identified gaps.
+        4.  Request a brief follow-up meeting (e.g., 30 minutes).
+        5.  Ask for their phone number and let them decide on the meeting format (phone call or Google Meet).
+        6.  End with "Best regards,\nForesvest".
+        
+        Analysis Summary:
+        {request.investment_summary[:1000]}
+
+        Identified Gaps for Discussion:
+        {request.identified_gaps[:1000]}
+
+        Draft the email body now.
+        """
+        response = await email_llm.ainvoke(prompt)
+        
+        subject = f"Request for an interview for clarification regarding {request.company_name}"
+        body = response.content
+
+        return {
+            "status": "success",
+            "subject": subject,
+            "body": body
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to generate email draft: {str(e)}"
+        )
+
+
+@app.post("/contact_founder")
+async def contact_founder_simple(email_data: EmailData):
+    """
+    Receives a request from the 'Contact Founder' button and sends an email.
+    """
+    try:
+        # The email sending logic is now directly in main.py
+        print(f"Sending email to {email_data.to_email} with subject: {email_data.subject}")
+        
+        # To actually send the email, ensure SMTP_PASSWORD and other SMTP variables are set in your .env file
+        send_email_direct(
+            to_email=email_data.to_email,
+            subject=email_data.subject,
+            body=email_data.body
+        )
+        
+        return {"status": "success", "message": "Email sent successfully"}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")

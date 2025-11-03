@@ -4,7 +4,7 @@ import asyncio
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional, TypedDict
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.prompts import ChatPromptTemplate
 from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
@@ -27,7 +27,7 @@ class BaseAgent(ABC):
     """Base class for all specialized agents."""
 
     # Guardrails: Agent execution limits
-    AGENT_TIMEOUT_SECONDS = 90
+    AGENT_TIMEOUT_SECONDS = 600
     MAX_CONTENT_LENGTH = 1_000_000  # 1M characters
     MAX_CHUNKS = 100  # Maximum number of chunks to process
     MIN_CONTENT_LENGTH = 10  # Minimum meaningful content

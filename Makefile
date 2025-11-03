@@ -16,7 +16,7 @@ install:
 	pip install -r requirements.txt
 
 run-backend:
-	uvicorn main:app --reload --host 0.0.0.0 --port 8000
+	uvicorn main:app --reload --host 0.0.0.0 --port 8443
 
 run-frontend:
 	python dashboard.py

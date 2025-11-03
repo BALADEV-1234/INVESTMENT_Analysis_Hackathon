@@ -31,7 +31,7 @@ app = dash.Dash(__name__,
 app.title = "VentureIQ - AI Investment Analysis"
 
 # Backend API URL
-API_URL = os.getenv("API_URL", "http://localhost:8000")
+API_URL = os.getenv("API_URL", "http://0.0.0.0:8443")
 
 # Modern Professional Color Palette (Claude/ChatGPT inspired)
 COLORS = {
@@ -125,6 +125,16 @@ app.index_string = '''
 
             .sidebar-content::-webkit-scrollbar-thumb:hover {
                 background: #3E4350;
+            }
+
+            .sidebar-footer {
+                padding: 16px 24px;
+                border-top: 1px solid #2E3340;
+                text-align: center;
+                color: #6B7280;
+                font-size: 12px;
+                flex-shrink: 0;
+                background: #1A1D24;
             }
 
             /* Main Content Area */
@@ -793,6 +803,7 @@ app.layout = html.Div([
     # Hidden stores
     dcc.Store(id='uploaded-files-store', data=[]),
     dcc.Store(id='progress-store', data=0),
+    dcc.Store(id='analysis-result-store', data={}),
 
     # Main App Container
     html.Div([
@@ -889,6 +900,12 @@ app.layout = html.Div([
 
             ], className='sidebar-content'),
 
+            # Sidebar Footer
+            html.Div([
+                html.P(["© 2025 ", html.B("Foresvest"), ". All rights reserved."],
+                       style={'margin': '0', 'color': COLORS['text_muted'], 'fontSize': '12px'})
+            ], className='sidebar-footer'),
+
         ], className='sidebar'),
 
         # RIGHT MAIN CONTENT
@@ -920,10 +937,9 @@ app.layout = html.Div([
                         html.P("Upload documents in the sidebar to start your investment analysis",
                                style={'color': COLORS['text_muted'], 'fontSize': '14px', 'maxWidth': '400px', 'margin': '0 auto'})
                     ], className='empty-state')
-                ])
+                ]),
 
             ], className='content-body')
-
         ], className='main-content')
 
     ], className='app-container')
@@ -937,7 +953,7 @@ app.layout = html.Div([
 )
 def check_system_status(_):
     try:
-        response = requests.get(f"{API_URL}/health", timeout=5)
+        response = requests.get(f"{API_URL}/health", timeout=15)
         if response.status_code == 200:
             data = response.json()
             api_status = data.get('api_keys_status', {})
@@ -1124,13 +1140,14 @@ def handle_file_upload(contents, filenames):
 @app.callback(
     [Output('analysis-results', 'children'),
      Output('progress-container', 'children'),
+     Output('analysis-result-store', 'data'),
      Output('analyze-button', 'disabled', allow_duplicate=True),
      Output('analyze-button', 'children', allow_duplicate=True)],
     Input('analyze-button', 'n_clicks'),
     State('uploaded-files-store', 'data'),
     prevent_initial_call=True
 )
-def perform_analysis(n_clicks, files_info):
+def perform_analysis(n_clicks, files_info) -> (Any, Any, Dict, bool, List):
     if not n_clicks or not files_info:
         raise PreventUpdate
 
@@ -1168,14 +1185,14 @@ def perform_analysis(n_clicks, files_info):
         endpoint = endpoint_map.get(analysis_type, '/analyze')
 
         # Make request with extended timeout
-        response = requests.post(f"{API_URL}{endpoint}", files=files_to_upload, timeout=300)
+        response = requests.post(f"{API_URL}{endpoint}", files=files_to_upload, timeout=600)
 
         if response.status_code == 200:
             data = response.json()
             results = create_professional_results(data, analysis_type)
             # Re-enable button after success
             button_content = [html.I(className="fas fa-robot me-2"), "Start Analysis"]
-            return results, None, False, button_content
+            return results, None, data, False, button_content
         else:
             error = dbc.Alert([
                 html.I(className="fas fa-exclamation-circle me-2"),
@@ -1183,7 +1200,7 @@ def perform_analysis(n_clicks, files_info):
             ], color="danger", style={'borderRadius': '12px'})
             # Re-enable button after error
             button_content = [html.I(className="fas fa-robot me-2"), "Start Analysis"]
-            return error, None, False, button_content
+            return error, None, {}, False, button_content
 
     except Exception as e:
         error = dbc.Alert([
@@ -1192,7 +1209,7 @@ def perform_analysis(n_clicks, files_info):
         ], color="warning", style={'borderRadius': '12px'})
         # Re-enable button after error
         button_content = [html.I(className="fas fa-robot me-2"), "Start Analysis"]
-        return error, None, False, button_content
+        return error, None, {}, False, button_content
 
 def create_professional_results(data, analysis_type):
     """Create professional results display with all sections."""
@@ -1912,7 +1929,26 @@ def create_questions_content(data):
             ])
         )
     
+    # Add Contact button inside the Questions tab content
+    components.extend([
+        html.Div([
+            dbc.Button(
+                [html.I(className="fas fa-envelope me-2"), "Contact Founder"],
+                id="contact-founder-button",
+                color="primary",
+                style={'marginTop': '20px'}
+            )
+        ], style={'textAlign': 'center'})
+        ,
+        html.Div(id='contact-founder-alert', style={'marginTop': '20px'})
+    ])
+
     return html.Div([
+        dcc.Store(id='email-data-store', data={
+            'to_email': 'foresvest@gmail.com',
+            'subject': 'Discussion about Questionnaire',
+            'body': 'Dear Founder,\n\nI would like to schedule a time to discuss the questionnaire and request for some documents. Please let us know what time works for you.\n\nBest regards,'
+        }),
         html.H4("Due Diligence Questions", 
                style={'color': '#FFFFFF', 'marginBottom': '24px', 'fontWeight': '600'}),
         html.Div(components if components else 
@@ -1930,7 +1966,7 @@ def create_questions_content(data):
 def load_saved_analyses(n_clicks, pathname):
     """Load and display list of saved analyses."""
     try:
-        response = requests.get(f"{API_URL}/analyses", timeout=5)
+        response = requests.get(f"{API_URL}/analyses", timeout=15)
         if response.status_code == 200:
             data = response.json()
             analyses = data.get('analyses', [])
@@ -2017,10 +2053,11 @@ def load_saved_analyses(n_clicks, pathname):
 
 @app.callback(
     Output('analysis-results', 'children', allow_duplicate=True),
+    Output('analysis-result-store', 'data', allow_duplicate=True),
     Input({'type': 'load-analysis-btn', 'index': dash.dependencies.ALL}, 'n_clicks'),
     prevent_initial_call=True
 )
-def load_analysis_detail(n_clicks_list):
+def load_analysis_detail(n_clicks_list) -> (Any, Dict):
     """Load detailed analysis when user clicks on a saved analysis."""
     if not any(n_clicks_list):
         raise PreventUpdate
@@ -2033,23 +2070,23 @@ def load_analysis_detail(n_clicks_list):
     analysis_id = triggered['index']
 
     try:
-        response = requests.get(f"{API_URL}/analyses/{analysis_id}", timeout=10)
+        response = requests.get(f"{API_URL}/analyses/{analysis_id}", timeout=20)
         if response.status_code == 200:
             data = response.json()
 
             # Render analysis results using existing function
             results_div = create_professional_results(data, 'full')
 
-            return results_div
+            return results_div, data
         else:
             return html.Div([
                 dbc.Alert(f"Failed to load analysis: {response.status_code}", color="danger")
-            ])
+            ]), {}
 
     except Exception as e:
         return html.Div([
             dbc.Alert(f"Error loading analysis: {str(e)}", color="danger")
-        ])
+        ]), {}
 
 
 @app.callback(
@@ -2057,7 +2094,7 @@ def load_analysis_detail(n_clicks_list):
     Input({'type': 'delete-analysis-btn', 'index': dash.dependencies.ALL}, 'n_clicks'),
     prevent_initial_call=True
 )
-def delete_analysis(n_clicks_list):
+def delete_analysis(n_clicks_list) -> html.Div:
     """Delete an analysis when delete button is clicked."""
     if not any(n_clicks_list):
         raise PreventUpdate
@@ -2070,10 +2107,10 @@ def delete_analysis(n_clicks_list):
     analysis_id = triggered['index']
 
     try:
-        response = requests.delete(f"{API_URL}/analyses/{analysis_id}", timeout=5)
+        response = requests.delete(f"{API_URL}/analyses/{analysis_id}", timeout=15)
         if response.status_code == 200:
             # Reload the list after deletion
-            response = requests.get(f"{API_URL}/analyses", timeout=5)
+            response = requests.get(f"{API_URL}/analyses", timeout=15)
             if response.status_code == 200:
                 data = response.json()
                 analyses = data.get('analyses', [])
@@ -2101,6 +2138,89 @@ def delete_analysis(n_clicks_list):
         return html.Div([
             dbc.Alert(f"Error deleting analysis: {str(e)}", color="danger", dismissable=True)
         ])
+
+
+
+
+# ==================== CONTACT FOUNDER CALLBACKS ====================
+
+@app.callback(
+    Output('contact-founder-alert', 'children'),
+    Input('contact-founder-button', 'n_clicks'),
+    State('analysis-result-store', 'data'),
+    prevent_initial_call=True
+)
+def contact_founder_callback(n_clicks, analysis_data):
+    if not n_clicks:
+        raise PreventUpdate#
+
+    if not analysis_data:
+        return dbc.Alert("No analysis data loaded. Please perform an analysis first.", color="warning", dismissable=True, duration=5000)
+
+    contact_details = analysis_data.get("contact_details", {})
+    email = contact_details.get("email")
+    phone = contact_details.get("phone")
+
+    if email:
+        # If email exists, proceed with sending the email
+        email_data = {
+            'to_email': email,
+            'subject': f'Request to Schedule an Interview Call with {analysis_data.get("company_name", "your company")}',
+            'body': 'Dear Founder,\n\nWe hope you’re doing well.Based on our recent analysis of your company documents, we would like to request an interview call to align on next steps, share insights, and validate our direction before moving forward.\n\nAdditionally, I’d like to discuss the questionnaire and request a few supporting documents.Please let us know a convenient time slot for the discussion, and I will make the necessary arrangements accordingly.\n\nBest regards,\n Foresvest Team'
+        }
+        try:
+            response = requests.post(f"{API_URL}/contact_founder", json=email_data, timeout=30)
+            if response.status_code == 200:
+                return dbc.Alert(f"Email sent successfully to {email}!", color="success", dismissable=True, duration=5000)
+            else:
+                return dbc.Alert(f"Failed to send email: {response.text}", color="danger", dismissable=True, duration=5000)
+        except Exception as e:
+            return dbc.Alert(f"Error sending email: {str(e)}", color="warning", dismissable=True, duration=5000)
+    elif phone:
+        # If no email but phone exists, show the phone number
+        return dbc.Alert(f"No email found. Founder's phone number: {phone}", color="info", dismissable=True, duration=10000)
+    else:
+        # If neither exists, show a not found message
+        return html.Div([
+            dbc.Alert("No contact details (email or phone) found in the Document.", color="warning", dismissable=True),
+            dbc.InputGroup([
+                dbc.Input(id="manual-email-input", placeholder="Enter founder's email manually", type="email"),
+                dbc.Button("Send Email", id="manual-send-email-button", color="primary"),
+            ], className="mt-2")
+        ])
+
+
+@app.callback(
+    Output('contact-founder-alert', 'children', allow_duplicate=True),
+    Input('manual-send-email-button', 'n_clicks'),
+    [State('manual-email-input', 'value'),
+     State('analysis-result-store', 'data')],
+    prevent_initial_call=True
+)
+def send_manual_email_callback(n_clicks, manual_email, analysis_data):
+    if not n_clicks or not manual_email:
+        raise PreventUpdate
+
+    if not analysis_data:
+        return dbc.Alert("Analysis data lost. Please try again.", color="danger", dismissable=True, duration=5000)
+
+    # Basic email validation
+    if "@" not in manual_email or "." not in manual_email:
+        return dbc.Alert("Please enter a valid email address.", color="warning", dismissable=True, duration=5000)
+
+    email_data = {
+        'to_email': manual_email,
+        'subject': f'Request to Schedule an Interview Call with {analysis_data.get("company_name", "your company")}',
+        'body': 'Dear Founder,\n\nWe hope you’re doing well.Based on our recent analysis of your company documents, we would like to request an interview call to align on next steps, share insights, and validate our direction before moving forward.\n\nAdditionally, I’d like to discuss the questionnaire and request a few supporting documents.Please let us know a convenient time slot for the discussion, and I will make the necessary arrangements accordingly.\n\nBest regards,\nForesvest Team'
+    }
+    try:
+        response = requests.post(f"{API_URL}/contact_founder", json=email_data, timeout=30)
+        if response.status_code == 200:
+            return dbc.Alert(f"Email sent successfully to {manual_email}!", color="success", dismissable=True, duration=5000)
+        else:
+            return dbc.Alert(f"Failed to send email: {response.text}", color="danger", dismissable=True, duration=5000)
+    except Exception as e:
+        return dbc.Alert(f"Error sending email: {str(e)}", color="warning", dismissable=True, duration=5000)
 
 
 # Run the app

@@ -26,7 +26,7 @@ class IntelligentCompanyExtractor:
     
     def __init__(self):
         self.llm = ChatGoogleGenerativeAI(
-            model=os.getenv("LLM_MODEL", "gemini-2.0-flash-exp"),
+            model=os.getenv("LLM_MODEL", "gemini-2.5-flash-lite"),
             temperature=0.1  # Low temperature for factual extraction
         )
     
@@ -203,7 +203,7 @@ class EnhancedMultiAgentOrchestrator:
 
     def __init__(self):
         # Guardrail: Validate required API keys
-        required_keys = ["GOOGLE_API_KEY"]
+        required_keys = ["GOOGLE_APPLICATION_CREDENTIALS"]
         missing_keys = [key for key in required_keys if not os.getenv(key)]
         if missing_keys:
             raise EnvironmentError(
@@ -276,6 +276,7 @@ class EnhancedMultiAgentOrchestrator:
                 "founder_questions": "",
                 "question_categories": {},
                 "identified_gaps": "",
+            "contact_details": {"email": None, "phone": None},
                 "agent_analyses": [],
                 "file_processing_summary": {"error": "timeout"},
                 "web_intelligence": {
@@ -400,8 +401,9 @@ class EnhancedMultiAgentOrchestrator:
                 "scores": {},
                 "founder_questions": "",
                 "question_categories": {},
-                "identified_gaps": ""
-            }
+                "identified_gaps": "",
+                    "contact_details": {"email": None, "phone": None},
+                },
 
         # Ensure analysis key exists
         if "analysis" not in final_summary:
@@ -419,6 +421,7 @@ class EnhancedMultiAgentOrchestrator:
             "founder_questions": final_summary.get("founder_questions", ""),
             "question_categories": final_summary.get("question_categories", {}),
             "identified_gaps": final_summary.get("identified_gaps", ""),
+            "contact_details": final_summary.get("contact_details", {"email": None, "phone": None}),
             "agent_analyses": valid_results,
             "file_processing_summary": self._create_processing_summary(categorized_files),
             "web_intelligence": {

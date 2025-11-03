@@ -1,5 +1,5 @@
 # Dockerfile.frontend
-FROM python:3.11-slim
+FROM python:3.12.3-slim
 
 WORKDIR /app
 
@@ -12,7 +12,8 @@ RUN pip install --no-cache-dir \
     dash-bootstrap-components==1.5.0 \
     plotly==5.18.0 \
     requests==2.31.0 \
-    python-dotenv==1.0.0
+    python-dotenv==1.0.0 \
+    pandas
 
 # Copy dashboard code
 COPY dashboard.py .
